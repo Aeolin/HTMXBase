@@ -6,9 +6,9 @@ namespace MongoDBSemesterProjekt.Models
 	{
 		public const string CollectionName = "collections";
 
+		public required string Slug { get; set; }
+		public required string Name { get; set; }
 
-		public string Slug { get; set; }
-		public string Name { get; set; }
 		public TimeSpan? CacheRetentionTime { get; set; }
 		public required JsonDocument Schema { get; set; }
 		public IList<TemplateModel> Templates { get; set; } = new List<TemplateModel>();
