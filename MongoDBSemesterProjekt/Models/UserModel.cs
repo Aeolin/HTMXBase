@@ -13,10 +13,10 @@ namespace MongoDBSemesterProjekt.Models
 		public bool IsLockoutEnabled { get; set; } = false;
 
 		public string? FirstName { get; set; }
-		public string? LastName { get; set; }
+		public string? LastName { get; set; }	
 		public string? AvatarUrl { get; set; }
 
-		public IList<string> Roles { get; set; } = new List<string>();
-		public IList<ObjectId> Groups { get; set; } = new List<ObjectId>();
+		public IList<string> Permissions { get; set; } = new List<string>();
+		public IList<string> Groups { get; set; } = new List<string>();
 	}
 }

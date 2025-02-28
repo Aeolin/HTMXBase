@@ -18,5 +18,6 @@ namespace MongoDBSemesterProjekt.Models
 		public string? InsertPermission { get; set; }
 		public string? ModifyPermission { get; set; }
 		public string? DeletePermission { get; set; }
+		public string? ComplexQueryPermission { get; set; }
 	}
 }

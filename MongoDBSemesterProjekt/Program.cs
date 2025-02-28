@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.OutputFormatters;
+using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ObjectCache;
 using MongoDBSemesterProjekt.Utils;
@@ -31,6 +32,9 @@ builder.Services.AddControllers(opts =>
 	opts.OutputFormatters.Add(new HtmxOutputFormatter());
 });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
+builder.Services.Configure<FlatFileStorageConfig>(config.GetSection("FlatFileStorage"));
+builder.Services.AddScoped<IFileStorage, FlatFileStorage>();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMongoClient>(x => new MongoClient(x.GetRequiredService<IConfiguration>().GetConnectionString("MongoDB")));
 builder.Services.AddScoped<IMongoDatabase>(x =>

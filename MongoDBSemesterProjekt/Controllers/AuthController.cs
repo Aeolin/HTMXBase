@@ -57,7 +57,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				LastName = request.LastName,
 				PasswordHash = "",
 				AvatarUrl = request.AvatarUrl ?? GetGravatarUrl(request.Email),
-				Roles = [Constants.USER_ROLE]
+				Groups = [Constants.USER_ROLE]
 			};
 
 			user.PasswordHash = _hasher.HashPassword(user, request.Password);

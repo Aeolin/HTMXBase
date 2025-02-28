@@ -2,8 +2,10 @@
 
 namespace MongoDBSemesterProjekt.Models
 {
-	public class RouteTemplateModel
-	{
+	public class RouteTemplateModel : EntityBase
+	{ 
+		public const string CollectionName = "route-templates";
+
 		public required string UrlTemplate { get; set; }
 		public ObjectId? CollectionId { get; set; }
 		public string? TemplateId { get; set; }

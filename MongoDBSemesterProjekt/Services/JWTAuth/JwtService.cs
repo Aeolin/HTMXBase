@@ -1,5 +1,6 @@
 ﻿using MongoDB.Driver;
 using MongoDBSemesterProjekt.Models;
+using MongoDBSemesterProjekt.Utils;
 using System.Security.Claims;
 
 namespace MongoDBSemesterProjekt.Services.JWTAuth
@@ -22,13 +23,14 @@ namespace MongoDBSemesterProjekt.Services.JWTAuth
 			if (string.IsNullOrEmpty(model.FirstName) == false && string.IsNullOrEmpty(model.LastName) == false)
 				identity.AddClaim(new Claim(ClaimTypes.GivenName, $"{model.FirstName} {model.LastName}"));
 
-			foreach (var role in model.Roles)
+			foreach (var role in model.Groups)
 				identity.AddClaim(new Claim(ClaimTypes.Role, role));
 
-			var groups = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => model.Groups.Contains(x.Id)).Project(x => x.Permissions).ToListAsync();
-			var permission = groups.SelectMany(x => x).Distinct();
+			var groups = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => model.Groups.Contains(x.Slug)).Project(x => x.Permissions).ToListAsync();
+			var permission = groups.SelectMany(x => x).Concat(model.Permissions).Distinct();
 			foreach (var perm in permission)
-				identity.AddClaim(new Claim("permission", perm));
+				identity.AddClaim(new Claim(Constants.PERMISSION_CLAIM, perm));
+
 
 			return identity;
 		}
