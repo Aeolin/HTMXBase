@@ -98,6 +98,9 @@ using (var scope = app.Services.CreateScope())
 		var userCollection = db.GetCollection<UserModel>(UserModel.CollectionName);
 		await userCollection.Indexes.CreateOneAsync(new CreateIndexModel<UserModel>(Builders<UserModel>.IndexKeys.Ascending(x => x.Email), new CreateIndexOptions { Unique = true }));
 		await userCollection.Indexes.CreateOneAsync(new CreateIndexModel<UserModel>(Builders<UserModel>.IndexKeys.Ascending(x => x.Username), new CreateIndexOptions { Unique = true }));
+		
+		var groupCollection = db.GetCollection<GroupModel>(GroupModel.CollectionName);
+		await groupCollection.Indexes.CreateOneAsync(new CreateIndexModel<GroupModel>(Builders<GroupModel>.IndexKeys.Ascending(x => x.Slug), new CreateIndexOptions { Unique = true }));
 	}
 
 	if (collectionNames.Contains(GroupModel.CollectionName) == false)

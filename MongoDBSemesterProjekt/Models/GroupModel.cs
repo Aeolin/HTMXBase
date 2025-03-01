@@ -9,6 +9,6 @@ namespace MongoDBSemesterProjekt.Models
 		public required string Slug { get; set; }
 		public required string Name { get; set; }
 		public string? Description { get; set; }
-		public IList<string> Permissions { get; set; } = new List<string>();
+		public List<string> Permissions { get; set; } = new List<string>();
 	}
 }
