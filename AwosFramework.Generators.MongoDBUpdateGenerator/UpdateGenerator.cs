@@ -222,10 +222,8 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				.Select(x => (symbol: ctx.SemanticModel.GetSymbolInfo(x).Symbol, attr: x))
 				.Where(x => x.symbol != null && x.symbol.ContainingType.ToDisplayString() == Constants.UpdatePropertyAttributeClassFullName);
 
-
-
 			var isEnumerable = IsEnumerableOrArrayType(ctx, property, out var isString);
-
+			var isNullable = ctx.SemanticModel.GetSymbolInfo(property.Type).Symbol is INamedTypeSymbol namedType && (namedType.IsReferenceType || (namedType.IsGenericType && namedType.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T));
 
 			if (updateAttributes.Any())
 			{
@@ -240,7 +238,6 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 						Constants.UpdatePropertyAttribute_ApplyToAllMethods_PropertyName,
 						Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, out _);
 
-
 					var semantic = ctx.SemanticModel;
 					var targetPropertyName = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
 						Constants.UpdatePropertyAttribute_TargetPropertyName_PropertyName,
@@ -248,11 +245,11 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 					var ignoreEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
 						Constants.UpdatePropertyAttribute_IgnoreEmpty_PropertyName,
-						Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue, out var ignoreEmptyIsSet);
+						Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue, out var ignoreEmptySet);
 
 					var ignoreNull = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
 						Constants.UpdatePropertyAttribute_IgnoreNull_PropertyName,
-						Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue, out _);
+						Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue, out var ignoreNullSet);
 
 					var collectionHandling = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
 						Constants.UpdatePropertyAttribute_CollectionHandling_PropertyName,
@@ -262,7 +259,10 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 						Constants.UpdatePropertyAttribute_UseStringEmpty_PropertyName,
 						Constants.UpdatePropertyAttribute_UseStringEmpty_DefaultValue, out var useStringEmptySet);
 
-					var update = new UpdateProperty(property.Identifier.Text, isEnumerable, methodName, applyToAll, false, updateAttribute.attr.GetLocation(), targetPropertyName, ignoreNull, ignoreEmpty, collectionHandling, isString && useStringEmpty);
+					var update = new UpdateProperty(property.Identifier.Text, isEnumerable, methodName, applyToAll, false, updateAttribute.attr.GetLocation(), targetPropertyName, ignoreNull && isNullable, ignoreEmpty && isEnumerable, collectionHandling, isString && useStringEmpty);
+
+					if(isNullable == false && ignoreNullSet)
+						diagnostics.Add(Diagnostic.Create(Constants.IgnoreNullNotApplicable, updateAttribute.attr.GetLocation()));
 
 					if (isString == false && useStringEmptySet)
 						diagnostics.Add(Diagnostic.Create(Constants.UseStringEmptyNotApplicable, updateAttribute.attr.GetLocation()));
@@ -270,7 +270,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 					if (isEnumerable == false && collectionHandlingSet)
 						diagnostics.Add(Diagnostic.Create(Constants.CollectionHandlingNotApplicable, updateAttribute.attr.GetLocation()));
 
-					if (isEnumerable == false && ignoreEmptyIsSet)
+					if (isEnumerable == false && ignoreEmptySet)
 						diagnostics.Add(Diagnostic.Create(Constants.IgnoreEmptyNotApplicable, updateAttribute.attr.GetLocation()));
 
 					yield return update;

@@ -158,5 +158,14 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			DiagnosticSeverity.Error,
 			true
 		);
+
+		public static readonly DiagnosticDescriptor IgnoreNullNotApplicable = new DiagnosticDescriptor(
+			"UPD007",
+			"Not nullable",
+			$"{UpdatePropertyAttribute_IgnoreNull_PropertyName} is only applicable to reference types or nullable value types",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
 	}
 }

@@ -17,6 +17,17 @@ namespace MongoDBSemesterProjekt.Utils
 		public static string GetIdentifier(this ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier);
 		public static Guid GetIdentifierGuid(this ClaimsPrincipal principal) => Guid.Parse(principal.GetIdentifier());
 
+		public static V GetOrAdd<K, V>(this Dictionary<K, V> dict, K key, Func<V> value)
+		{
+			if(dict.TryGetValue(key, out var result) == false)
+			{
+				result = value();
+				dict.Add(key, result);
+			}
+			
+			return result;
+		}
+
 		public static void ForEach<T>(this IEnumerable<T> collection, Action<T> action)
 		{
 			foreach (var item in collection)
