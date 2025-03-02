@@ -20,6 +20,9 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 		public const string MarkerAttribute_MethodName_PropertyName = "MethodName";
 		public const string MarkerAttribute_MethodName_DefaultValue = "ToUpdate";
 
+		public const string MarkerAttribute_UsePartialClass_PropertyName = "UsePartialClass";
+		public const bool MarkerAttribute_UsePartialClass_DefaultValue = true;
+
 		public static readonly string MarkerAttributeClass =
 		$$"""
 		using System;
@@ -30,7 +33,8 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			public class {{MarkerAttributeClassName}} : Attribute
 			{
 				public static Type EntityType { get; set; }
-				public bool {{MarkerAttribute_IgnoreUnmarkedProperties_PropertyName}} { get; set; } = {{MarkerAttribute_IgnoreUnmarkedProperties_DefaultValue}};
+				public bool {{MarkerAttribute_IgnoreUnmarkedProperties_PropertyName}} { get; set; } = {{(MarkerAttribute_IgnoreUnmarkedProperties_DefaultValue ? "true" : "false")}};
+				public bool {{MarkerAttribute_UsePartialClass_PropertyName}} { get; set; } = {{(MarkerAttribute_UsePartialClass_DefaultValue ? "true" : "false")}};
 				public string? {{MarkerAttribute_MethodName_PropertyName}} { get; set; } = {{(MarkerAttribute_MethodName_DefaultValue == null ? "null" : $"\"{MarkerAttribute_MethodName_DefaultValue}\"")}};
 
 				public {{MarkerAttributeClassName}}(Type entityType)
@@ -141,6 +145,15 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			"UPD005",
 			"Only applicable to string properties",
 			$"{UpdatePropertyAttribute_UseStringEmpty_PropertyName} is only applicable to string properties",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
+
+		public static readonly DiagnosticDescriptor PartialClassMissing = new DiagnosticDescriptor(
+			"UPD006",
+			"Not an partial class",
+			$"{MarkerAttribute_UsePartialClass_PropertyName} was set but class {{0}} is not marked as partial",
 			"Usage",
 			DiagnosticSeverity.Error,
 			true

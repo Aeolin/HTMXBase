@@ -8,6 +8,7 @@ using MongoDBSemesterProjekt.Authorization;
 using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.Utils;
 using System.ComponentModel.DataAnnotations;
+using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -172,7 +173,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (user == null)
 				return NotFound();
 			
-			var groups = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => user.Groups.Contains(x.Id)).ToListAsync();
+			var groups = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => user.Groups.Contains(x.Slug)).ToListAsync();
 			return Ok(_mapper.Map<ApiGroup[]>(groups));
 		}
 	}

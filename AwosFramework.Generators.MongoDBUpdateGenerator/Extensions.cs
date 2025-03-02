@@ -9,18 +9,18 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 {
 	public static class Extensions
 	{
-		public static T GetNamedAttributeValueOrDefault<T>(this AttributeSyntax attribute, SemanticModel model, string propertyName, T defaultValue, out bool defaultReturned)
+		public static T GetNamedAttributeValueOrDefault<T>(this AttributeSyntax attribute, SemanticModel model, string propertyName, T defaultValue, out bool wasSet)
 		{
 			if (attribute == null)
 			{
-				defaultReturned = true;
+				wasSet = false;
 				return defaultValue;
 			}
 
 			var argument = attribute.ArgumentList.Arguments.FirstOrDefault(x => x.NameEquals?.Name.Identifier.Text == propertyName);
 			if (argument == null)
 			{
-				defaultReturned = true; 
+				wasSet = false; 
 				return defaultValue;
 			}
 
@@ -28,25 +28,25 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 			if (value.HasValue == false)
 			{
-				defaultReturned = true;
+				wasSet = false;
 				return defaultValue;
 			}
 
 			if (value.Value is T valueT)
 			{
-				defaultReturned = false;
+				wasSet = true;
 				return valueT;
 			}
 			else
 			{
 				try
 				{
-					defaultReturned = false;
+					wasSet = true;
 					return (T)value.Value;
 				}
 				catch (InvalidCastException)
 				{
-					defaultReturned = true;
+					wasSet = false;
 					return defaultValue;
 				}
 			}

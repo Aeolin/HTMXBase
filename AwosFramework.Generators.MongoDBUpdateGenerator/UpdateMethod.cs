@@ -10,13 +10,16 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 		public string TargetClassName { get; set; }
 		public string MethodName { get; set; }
 		public UpdateProperty[] Properties { get; set; }
+		public bool UsePartialClass { get; set; }
 
-
-		public UpdateMethod(string targetClass, string methodName, UpdateProperty[] properties)
+		public UpdateMethod(string targetClass, string methodName, UpdateProperty[] properties,
+			bool usePartialClass = Constants.MarkerAttribute_UsePartialClass_DefaultValue
+		)
 		{
 			TargetClassName=targetClass;
 			MethodName=methodName;
 			Properties=properties;
+			UsePartialClass =usePartialClass;
 		}
 
 	}
