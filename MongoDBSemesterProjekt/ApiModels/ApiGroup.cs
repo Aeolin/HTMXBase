@@ -20,7 +20,13 @@ namespace MongoDBSemesterProjekt.ApiModels
 		public string[]? Permissions { get; set; }
 	}
 
+
+	[MongoDBUpdate(typeof(GroupModel), MethodName = "ToUpdateAddPermission")]
+	[MongoDBUpdate(typeof(GroupModel), MethodName = "ToUpdateRemovePermission")]
 	public class ApiGroupSetPermissionRequest
 	{
+		[UpdateProperty(MethodName = "ToUpdateAddPermission", CollectionHandling = CollectionHandling.AddToSet)]
+		[UpdateProperty(MethodName = "ToUpdateRemovePermission", CollectionHandling = CollectionHandling.PullAll)]
+		public string[]? Permissions { get; set; }
 	}
 }

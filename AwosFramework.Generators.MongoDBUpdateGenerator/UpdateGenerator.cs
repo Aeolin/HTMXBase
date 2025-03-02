@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Text;
 
@@ -208,68 +209,76 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			return IsEnumerableOrArrayType(typeSymbol, out isString);
 		}
 
-		private static UpdateProperty? GetProperty(GeneratorSyntaxContext ctx, List<Diagnostic> diagnostics, PropertyDeclarationSyntax property)
+		private static IEnumerable<UpdateProperty> GetProperties(GeneratorSyntaxContext ctx, List<Diagnostic> diagnostics, PropertyDeclarationSyntax property)
 		{
 			var ignore = property.AttributeLists.SelectMany(x => x.Attributes)
 				.Select(x => ctx.SemanticModel.GetSymbolInfo(x).Symbol)
 				.Any(x => x != null && x.ContainingType.ToDisplayString() == Constants.UpdatePropertyIgnoreAttributeClassFullName);
 
 			if (ignore)
-				return null;
+				yield break;
 
-			var updateAttribute = property.AttributeLists.SelectMany(x => x.Attributes)
+			var updateAttributes = property.AttributeLists.SelectMany(x => x.Attributes)
 				.Select(x => (symbol: ctx.SemanticModel.GetSymbolInfo(x).Symbol, attr: x))
-				.FirstOrDefault(x => x.symbol != null && x.symbol.ContainingType.ToDisplayString() == Constants.UpdatePropertyAttributeClassFullName);
+				.Where(x => x.symbol != null && x.symbol.ContainingType.ToDisplayString() == Constants.UpdatePropertyAttributeClassFullName);
 
-			var methodName = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
-				Constants.UpdatePropertyAttribute_MethodName_PropertyName,
-				Constants.UpdatePropertyAttribute_MethodName_DefaultValue, out _);
 
-			var applyToAll = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
-				Constants.UpdatePropertyAttribute_ApplyToAllMethods_PropertyName,
-				Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, out _);
 
 			var isEnumerable = IsEnumerableOrArrayType(ctx, property, out var isString);
 
-			if (updateAttribute.attr == null)
+
+			if (updateAttributes.Any())
 			{
-				return new UpdateProperty(property.Identifier.Text, isEnumerable, methodName, applyToAll, true, property.GetLocation());
+
+				foreach (var updateAttribute in updateAttributes)
+				{
+					var methodName = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
+						Constants.UpdatePropertyAttribute_MethodName_PropertyName,
+						Constants.UpdatePropertyAttribute_MethodName_DefaultValue, out _);
+
+					var applyToAll = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
+						Constants.UpdatePropertyAttribute_ApplyToAllMethods_PropertyName,
+						Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, out _);
+
+
+					var semantic = ctx.SemanticModel;
+					var targetPropertyName = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+						Constants.UpdatePropertyAttribute_TargetPropertyName_PropertyName,
+						Constants.UpdatePropertyAttribute_TargetPropertyName_DefaultValue, out _);
+
+					var ignoreEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+						Constants.UpdatePropertyAttribute_IgnoreEmpty_PropertyName,
+						Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue, out var ignoreEmptyIsSet);
+
+					var ignoreNull = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+						Constants.UpdatePropertyAttribute_IgnoreNull_PropertyName,
+						Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue, out _);
+
+					var collectionHandling = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+						Constants.UpdatePropertyAttribute_CollectionHandling_PropertyName,
+						Constants.UpdatePropertyAttribute_CollectionHandling_DefaultValue, out var collectionHandlingSet);
+
+					var useStringEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+						Constants.UpdatePropertyAttribute_UseStringEmpty_PropertyName,
+						Constants.UpdatePropertyAttribute_UseStringEmpty_DefaultValue, out var useStringEmptySet);
+
+					var update = new UpdateProperty(property.Identifier.Text, isEnumerable, methodName, applyToAll, false, updateAttribute.attr.GetLocation(), targetPropertyName, ignoreNull, ignoreEmpty, collectionHandling, isString && useStringEmpty);
+
+					if (isString == false && useStringEmptySet)
+						diagnostics.Add(Diagnostic.Create(Constants.UseStringEmptyNotApplicable, updateAttribute.attr.GetLocation()));
+
+					if (isEnumerable == false && collectionHandlingSet)
+						diagnostics.Add(Diagnostic.Create(Constants.CollectionHandlingNotApplicable, updateAttribute.attr.GetLocation()));
+
+					if (isEnumerable == false && ignoreEmptyIsSet)
+						diagnostics.Add(Diagnostic.Create(Constants.IgnoreEmptyNotApplicable, updateAttribute.attr.GetLocation()));
+
+					yield return update;
+				}
 			}
 			else
 			{
-				var semantic = ctx.SemanticModel;
-				var targetPropertyName = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-					Constants.UpdatePropertyAttribute_TargetPropertyName_PropertyName,
-					Constants.UpdatePropertyAttribute_TargetPropertyName_DefaultValue, out _);
-
-				var ignoreEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-					Constants.UpdatePropertyAttribute_IgnoreEmpty_PropertyName,
-					Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue, out var ignoreEmptyIsSet);
-
-				var ignoreNull = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-					Constants.UpdatePropertyAttribute_IgnoreNull_PropertyName,
-					Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue, out _);
-
-				var collectionHandling = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-					Constants.UpdatePropertyAttribute_CollectionHandling_PropertyName,
-					Constants.UpdatePropertyAttribute_CollectionHandling_DefaultValue, out var collectionHandlingSet);
-
-				var useStringEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-					Constants.UpdatePropertyAttribute_UseStringEmpty_PropertyName,
-					Constants.UpdatePropertyAttribute_UseStringEmpty_DefaultValue, out var useStringEmptySet);
-
-				var update = new UpdateProperty(property.Identifier.Text, isEnumerable, methodName, applyToAll, false, updateAttribute.attr.GetLocation(), targetPropertyName, ignoreNull, ignoreEmpty, collectionHandling, isString && useStringEmpty);
-
-				if (isString == false && useStringEmptySet)
-					diagnostics.Add(Diagnostic.Create(Constants.UseStringEmptyNotApplicable, updateAttribute.attr.GetLocation()));
-
-				if (isEnumerable == false && collectionHandlingSet)
-					diagnostics.Add(Diagnostic.Create(Constants.CollectionHandlingNotApplicable, updateAttribute.attr.GetLocation()));
-
-				if (isEnumerable == false && ignoreEmptyIsSet)
-					diagnostics.Add(Diagnostic.Create(Constants.IgnoreEmptyNotApplicable, updateAttribute.attr.GetLocation()));
-
-				return update;
+				yield return new UpdateProperty(property.Identifier.Text, isEnumerable, Constants.UpdatePropertyAttribute_MethodName_DefaultValue, Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, true, property.GetLocation());
 			}
 		}
 
@@ -290,7 +299,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			var methods = new List<UpdateMethod>();
 
 			var properties = classDeclaration.Members.OfType<PropertyDeclarationSyntax>()
-				.SelectNonNull(x => GetProperty(ctx, diagnostics, x))
+				.SelectMany(x => GetProperties(ctx, diagnostics, x))
 				.ToArray();
 
 			var className = classDeclaration.Identifier.ToString();
@@ -338,7 +347,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 					usePartialClass = false;
 				}
 
-				var propertiesForMethod = properties.Where(x => (x.ApplyToAllMethods || x.MethodName == methodName) && (x.IsUnmarked || ignoreUnmarkedProperty)).ToArray();
+				var propertiesForMethod = properties.Where(x => (x.ApplyToAllMethods || x.MethodName == methodName) && (ignoreUnmarkedProperty && x.IsUnmarked) == false).ToArray();
 				var updateMethod = new UpdateMethod(entityType, methodName, propertiesForMethod, usePartialClass && isPartialClass);
 				methods.Add(updateMethod);
 			}

@@ -96,10 +96,10 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> UpdateGroupPermissionsAsync([FromRoute] string slug, [FromForm][FromBody] string[] permissions)
+		public async Task<IActionResult> UpdateGroupPermissionsAsync([FromRoute] string slug, [FromForm][FromBody] ApiGroupSetPermissionRequest permissions)
 		{
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
-				.FindOneAndUpdateAsync(x => x.Slug == slug, Builders<GroupModel>.Update.AddToSetEach(x => x.Permissions, permissions), ReturnUpdatedOptions);
+				.FindOneAndUpdateAsync(x => x.Slug == slug, permissions.ToUpdateAddPermission(), ReturnUpdatedOptions);
 			
 			if (result == null)
 				return NotFound();
@@ -111,10 +111,10 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> RemoveGroupPermissionsAsync([FromRoute] string slug, [FromForm][FromBody] string[] permissions)
+		public async Task<IActionResult> RemoveGroupPermissionsAsync([FromRoute] string slug, [FromForm][FromBody] ApiGroupSetPermissionRequest permissions)
 		{
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
-				.FindOneAndUpdateAsync(x => x.Slug == slug, Builders<GroupModel>.Update.PullAll(x => x.Permissions, permissions), ReturnUpdatedOptions);
+				.FindOneAndUpdateAsync(x => x.Slug == slug, permissions.ToUpdateRemovePermission(), ReturnUpdatedOptions);
 			
 			if (result == null)
 				return NotFound();
