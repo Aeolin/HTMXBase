@@ -5,7 +5,7 @@ namespace MongoDBSemesterProjekt.Utils
 	{
 		public const string USER_ROLE = "user";
 		public const string ADMIN_ROLE = "admin";
-
+		public const string BACKEND_USER = "backend";
 		public const string PERMISSION_CLAIM = "permission";
 	}
 }

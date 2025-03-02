@@ -1,6 +1,8 @@
 ﻿using HandlebarsDotNet;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 
 namespace MongoDBSemesterProjekt.Utils
@@ -15,6 +17,7 @@ namespace MongoDBSemesterProjekt.Utils
 
 		public static string UrlEncode(this string @string) => System.Web.HttpUtility.UrlEncode(@string);
 
+		public static FrozenSet<string> GetPermissions(this ClaimsPrincipal principal) => principal == null ? FrozenSet<string>.Empty : principal.FindAll(x => x.Type == Constants.PERMISSION_CLAIM).Select(x => x.Value).ToFrozenSet();
 		public static bool HasPermission(this ClaimsPrincipal principal, string permission) => principal.HasClaim(x => x.Type == Constants.PERMISSION_CLAIM && x.Value == permission);
 		public static string GetIdentifier(this ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier);
 		public static ObjectId GetIdentifierId(this ClaimsPrincipal principal) => ObjectId.Parse(principal.GetIdentifier());

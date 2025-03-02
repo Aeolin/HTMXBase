@@ -16,15 +16,12 @@
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
     <PackageReference Include="MongoDB.Bson" Version="3.1.0" />
     <PackageReference Include="MongoDB.Driver" Version="3.1.0" />
-    <PackageReference Include="MongoDB.Driver.Core" Version="2.30.0" />
     <PackageReference Include="NSwag.AspNetCore" Version="14.2.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.4.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AwosFramework.Generators.MongoDBUpdateGenerator\AwosFramework.Generators.MongoDBUpdateGenerator.csproj" 
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\AwosFramework.Generators.MongoDBUpdateGenerator\AwosFramework.Generators.MongoDBUpdateGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
