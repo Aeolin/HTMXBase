@@ -21,7 +21,7 @@ namespace MongoDBSemesterProjekt.Utils
 				list.Add(builder.Set(x => x.Description, req.Description));
 
 			if (req.Permissions != null && req.Permissions.Length > 0)
-				list.Add(builder.Set(x => x.Permissions, req.Permissions));
+				list.Add(builder.PullAll(x => x.Permissions, req.Permissions));
 
 			return builder.Combine(list);
 		}

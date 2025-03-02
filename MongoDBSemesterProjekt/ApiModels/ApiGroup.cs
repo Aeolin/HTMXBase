@@ -19,4 +19,8 @@ namespace MongoDBSemesterProjekt.ApiModels
 		public string? Description { get; set; }
 		public string[]? Permissions { get; set; }
 	}
+
+	public class ApiGroupSetPermissionRequest
+	{
+	}
 }
