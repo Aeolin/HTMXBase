@@ -82,7 +82,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				public string? {{UpdatePropertyAttribute_TargetPropertyName_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_TargetPropertyName_DefaultValue == null ? "null" : $"\"{UpdatePropertyAttribute_TargetPropertyName_DefaultValue}\"")}};
 				public string? {{UpdatePropertyAttribute_MethodName_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_MethodName_DefaultValue == null ? "null" : $"\"{UpdatePropertyAttribute_MethodName_DefaultValue}\"")}};
 				public bool {{UpdatePropertyAttribute_IgnoreNull_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_IgnoreNull_DefaultValue ? "true" : "false")}};
-				public bool {{UpdatePropertyAttribute_TargetPropertyName_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_IgnoreEmpty_DefaultValue ? "true" : "false")}};
+				public bool {{UpdatePropertyAttribute_IgnoreEmpty_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_IgnoreEmpty_DefaultValue ? "true" : "false")}};
 				public bool {{UpdatePropertyAttribute_ApplyToAllMethods_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue ? "true" : "false")}};
 				public bool {{UpdatePropertyAttribute_UseStringEmpty_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_UseStringEmpty_DefaultValue ? "true" : "false")}};	
 				public {{nameof(CollectionHandling)}} {{UpdatePropertyAttribute_CollectionHandling_PropertyName}} { get; set; } = {{nameof(CollectionHandling)}}.{{UpdatePropertyAttribute_CollectionHandling_DefaultValue}};				
