@@ -32,7 +32,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
 			public class {{MarkerAttributeClassName}} : Attribute
 			{
-				public static Type EntityType { get; set; }
+				public Type EntityType { get; set; }
 				public bool {{MarkerAttribute_IgnoreUnmarkedProperties_PropertyName}} { get; set; } = {{(MarkerAttribute_IgnoreUnmarkedProperties_DefaultValue ? "true" : "false")}};
 				public bool {{MarkerAttribute_UsePartialClass_PropertyName}} { get; set; } = {{(MarkerAttribute_UsePartialClass_DefaultValue ? "true" : "false")}};
 				public string? {{MarkerAttribute_MethodName_PropertyName}} { get; set; } = {{(MarkerAttribute_MethodName_DefaultValue == null ? "null" : $"\"{MarkerAttribute_MethodName_DefaultValue}\"")}};

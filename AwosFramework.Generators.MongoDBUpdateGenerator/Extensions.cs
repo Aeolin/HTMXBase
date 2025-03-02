@@ -94,7 +94,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			{
 				public enum {{enumType.Name}} : {{underlyingType.FullName}}
 				{
-					{{enumValues.JoinTabbed(2)}}
+					{{enumValues.JoinTabbed(2, "\n,")}}
 				}
 			}
 			""";

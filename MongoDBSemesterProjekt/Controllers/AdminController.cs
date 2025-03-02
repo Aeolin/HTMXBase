@@ -16,9 +16,7 @@ namespace MongoDBSemesterProjekt.Controllers
 	[Route("api/v1/admin")]
 	public class AdminController : HtmxBaseController
 	{
-		private static readonly Dictionary<Type, object> _cachedUpdateOptions = new Dictionary<Type, object>();
-		private static FindOneAndUpdateOptions<T> GetReturnUpdatedOptions<T>() => (FindOneAndUpdateOptions<T>)_cachedUpdateOptions.GetOrAdd(typeof(T), () => new FindOneAndUpdateOptions<T> { ReturnDocument = ReturnDocument.After });
-
+	
 		public AdminController(IMongoDatabase dataBase, IMapper mapper) : base(dataBase, mapper)
 		{
 		}

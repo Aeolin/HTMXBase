@@ -40,11 +40,11 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			if (property.IsEnumerable)
 			{
 				if (property.IgnoreNull && property.IgnoreEmpty)
-					return $"if({modelParamName}.{property.SourceName} != null && {Constants.ModelParameterName}{property.SourceName}.Count() > 0)";
+					return $"if({modelParamName}.{property.SourceName} != null && {modelParamName}.{property.SourceName}.Count() > 0)";
 				else if (property.IgnoreNull)
 					return $"if({modelParamName}.{property.SourceName} != null)";
 				else if (property.IgnoreEmpty)
-					return $"if({modelParamName}{property.SourceName}.Count() > 0)";
+					return $"if({modelParamName}.{property.SourceName}.Count() > 0)";
 				else
 					return null;
 			}
@@ -66,7 +66,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				var setName = property.CollectionHandling switch
 				{
 					CollectionHandling.Set => "Set",
-					CollectionHandling.AddToSet => "AddToSet",
+					CollectionHandling.AddToSet => "AddToSetEach",
 					CollectionHandling.PushAll => "PushAll",
 					CollectionHandling.PullAll => "PullAll",
 					_ => null
@@ -141,7 +141,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				return;
 
 
-			var partialMethods = apiModel.UpdateMethods.Where(x => x.UsePartialClass).Select(x => GenerateExtensionUpdateMethod(ctx, apiModel, x)).ToArray();
+			var partialMethods = apiModel.UpdateMethods.Where(x => x.UsePartialClass).Select(x => GeneratePartialUpdateMethod(apiModel, x)).ToArray();
 			if (partialMethods.Any())
 			{
 				var classCode =

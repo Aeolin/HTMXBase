@@ -25,5 +25,11 @@ namespace MongoDBSemesterProjekt.ApiModels
 
 		[UpdateProperty(ApplyToAllMethods = true)]
 		public string AvatarUrl { get; set; }
+
+		[UpdatePropertyIgnore]
+		public ApiGroup[] Groups { get; set; }
+		
+		[UpdatePropertyIgnore] 
+		public string[] Permissions { get; set; }
 	}
 }
