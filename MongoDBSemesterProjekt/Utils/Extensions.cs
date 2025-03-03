@@ -14,6 +14,16 @@ namespace MongoDBSemesterProjekt.Utils
 			foreach (var item in items)
 				collection.Add(item);
 		}
+		public static UpdateDefinition<MongoDBSemesterProjekt.Models.CollectionModel> ToAddTemplate(this MongoDBSemesterProjekt.ApiModels.ApiTemplate apiModel)
+		{
+			var builder = Builders<MongoDBSemesterProjekt.Models.CollectionModel>.Update;
+			var list = new List<UpdateDefinition<MongoDBSemesterProjekt.Models.CollectionModel>>(1);
+
+			//if (apiModel != null)
+			//	list.Add(builder.Push(x => x.Templates));
+
+			return builder.Combine(list);
+		}
 
 		public static string UrlEncode(this string @string) => System.Web.HttpUtility.UrlEncode(@string);
 

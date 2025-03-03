@@ -1,9 +1,12 @@
 ﻿using HandlebarsDotNet;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Net.Http.Headers;
 using MongoDBSemesterProjekt.Controllers;
 using MongoDBSemesterProjekt.Services.TemplateStore;
+using MongoDBSemesterProjekt.Utils;
+using System.Reflection.Metadata;
 using System.Text;
 
 namespace MongoDBSemesterProjekt.OutputFormatters
@@ -47,7 +50,8 @@ namespace MongoDBSemesterProjekt.OutputFormatters
 			if (descriptor == null)
 				return false;
 
-			if(descriptor.ControllerTypeInfo != typeof(CollectionController) || descriptor.MethodInfo.Name != nameof(CollectionController.QueryAsync))
+			var group = context?.HttpContext?.GetEndpoint()?.Metadata.GetMetadata<IEndpointGroupNameMetadata>()?.EndpointGroupName;
+			if (group != Constants.HTMX_ENDPOINT)
 				return false;
 
 			if (TryGetTemplateId(context?.HttpContext, out var templateId) == false)
@@ -65,7 +69,6 @@ namespace MongoDBSemesterProjekt.OutputFormatters
 
 		public override async Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
 		{
-
 			var store = context.HttpContext.RequestServices.GetRequiredService<IHtmxTemplateStore>();
 			if(TryGetTemplateId(context.HttpContext, out var templateId) == false)
 				throw new InvalidOperationException("TemplateId not found");

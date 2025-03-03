@@ -23,6 +23,10 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 		public const string MarkerAttribute_UsePartialClass_PropertyName = "UsePartialClass";
 		public const bool MarkerAttribute_UsePartialClass_DefaultValue = true;
 
+		public const string MarkerAttribute_NestedProperty_PropertyName = "NestedProperty";
+		public const string MarkerAttribute_NestedProperty_DefaultValue = null;
+
+
 		public static readonly string MarkerAttributeClass =
 		$$"""
 		using System;
@@ -36,6 +40,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				public bool {{MarkerAttribute_IgnoreUnmarkedProperties_PropertyName}} { get; set; } = {{(MarkerAttribute_IgnoreUnmarkedProperties_DefaultValue ? "true" : "false")}};
 				public bool {{MarkerAttribute_UsePartialClass_PropertyName}} { get; set; } = {{(MarkerAttribute_UsePartialClass_DefaultValue ? "true" : "false")}};
 				public string? {{MarkerAttribute_MethodName_PropertyName}} { get; set; } = {{(MarkerAttribute_MethodName_DefaultValue == null ? "null" : $"\"{MarkerAttribute_MethodName_DefaultValue}\"")}};
+				public string? {{MarkerAttribute_NestedProperty_PropertyName}} { get; set; } = {{(MarkerAttribute_NestedProperty_DefaultValue == null ? "null" : $"\"{MarkerAttribute_NestedProperty_DefaultValue}\"")}};
 
 				public {{MarkerAttributeClassName}}(Type entityType)
 				{
@@ -70,13 +75,16 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 		public const string UpdatePropertyAttribute_UseStringEmpty_PropertyName = "UseStringEmpty";
 		public const bool UpdatePropertyAttribute_UseStringEmpty_DefaultValue = true;
 
+		public const string UpdatePropertyAttribute_IsSourceArray_PropertyName = "IsSourceArray";
+		public const bool UpdatePropertyAttribute_IsSourceArray_DefaultValue = false;
+
 		public static readonly string UpdatePropertyAttributeClass =
 		$$"""
 		using System;
 
 		namespace {{NameSpace}}
 		{
-			[AttributeUsage(AttributeTargets.Property, AllowMultiple = true)]
+			[AttributeUsage(AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = true)]
 			public class {{UpdatePropertyAttributeClassName}} : Attribute
 			{
 				public string? {{UpdatePropertyAttribute_TargetPropertyName_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_TargetPropertyName_DefaultValue == null ? "null" : $"\"{UpdatePropertyAttribute_TargetPropertyName_DefaultValue}\"")}};
@@ -85,6 +93,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				public bool {{UpdatePropertyAttribute_IgnoreEmpty_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_IgnoreEmpty_DefaultValue ? "true" : "false")}};
 				public bool {{UpdatePropertyAttribute_ApplyToAllMethods_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue ? "true" : "false")}};
 				public bool {{UpdatePropertyAttribute_UseStringEmpty_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_UseStringEmpty_DefaultValue ? "true" : "false")}};	
+				public bool {{UpdatePropertyAttribute_IsSourceArray_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_IsSourceArray_DefaultValue ? "true" : "false")}};
 				public {{nameof(CollectionHandling)}} {{UpdatePropertyAttribute_CollectionHandling_PropertyName}} { get; set; } = {{nameof(CollectionHandling)}}.{{UpdatePropertyAttribute_CollectionHandling_DefaultValue}};				
 			}
 		}
@@ -163,6 +172,60 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			"UPD007",
 			"Not nullable",
 			$"{UpdatePropertyAttribute_IgnoreNull_PropertyName} is only applicable to reference types or nullable value types",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
+
+		public static readonly DiagnosticDescriptor PropertyNotFound = new DiagnosticDescriptor(
+			"UPD008",
+			"Property not found",
+			$"Property {{0}} not found in the target class {{1}}",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
+
+		public static readonly DiagnosticDescriptor PropertyNotEnumerable = new DiagnosticDescriptor(
+			"UPD009",
+			"Property not enumerable",
+			$"Property {{0}} of {{1}} is not enumerable but the source property is",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
+
+		public static DiagnosticDescriptor IsSourceArrayNotApplicable = new DiagnosticDescriptor(
+			"UPD010",
+			"IsSourceArray not Applicable here",
+			$"{UpdatePropertyAttribute_IsSourceArray_PropertyName} is only applicable when placed on class",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
+
+		public static readonly DiagnosticDescriptor TargetPropertyNameMissing = new DiagnosticDescriptor(
+			"UPD011",
+			$"{UpdatePropertyAttribute_TargetPropertyName_PropertyName} missing",
+			$"{UpdatePropertyAttribute_TargetPropertyName_PropertyName} is missing in the attribute, it needs to be set if the attribute is added to a class",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
+
+		public static readonly DiagnosticDescriptor ClassNotFound = new DiagnosticDescriptor(
+			"UPD012",
+			"Class not found",
+			$"Class {{0}} not found in AST",
+			"Usage",
+			DiagnosticSeverity.Error,
+			true
+		);
+
+		public static readonly DiagnosticDescriptor InvalidNestedProperty = new DiagnosticDescriptor(
+			"UPD013",
+			"Invalid Nested Property",
+			$"Nested property {{0}} is not found in the target class {{1}}",
 			"Usage",
 			DiagnosticSeverity.Error,
 			true

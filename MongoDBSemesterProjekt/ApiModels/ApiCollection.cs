@@ -9,7 +9,7 @@ namespace MongoDBSemesterProjekt.ApiModels
 		public TimeSpan? CacheRetentionTime { get; set; }
 		public JsonDocument Schema { get; set; }
 		public ApiTemplate[] Temapltes { get; set; }
-
+		public bool IsInbuilt { get; set; }
 		public string? DefaultTemplate { get; set; }
 		public string? QueryPermission { get; set; }
 		public string? InsertPermission { get; set; }

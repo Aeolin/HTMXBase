@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.OutputFormatters;
@@ -12,7 +13,9 @@ using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ObjectCache;
 using MongoDBSemesterProjekt.Utils;
+using System.Collections.Frozen;
 using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -89,8 +92,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
 	var db = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
-	var collections = await db.ListCollectionNamesAsync();
-	var collectionNames = await collections.ToListAsync();
+	var collections = await db.ListCollections().ToListAsync();
+	var collectionNames = collections.Select(x => x["name"]).ToFrozenSet();
 
 
 	if (collectionNames.Contains(UserModel.CollectionName) == false)
@@ -101,6 +104,32 @@ using (var scope = app.Services.CreateScope())
 		
 		var groupCollection = db.GetCollection<GroupModel>(GroupModel.CollectionName);
 		await groupCollection.Indexes.CreateOneAsync(new CreateIndexModel<GroupModel>(Builders<GroupModel>.IndexKeys.Ascending(x => x.Slug), new CreateIndexOptions { Unique = true }));
+
+		var collectionCollection = db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+
+		var userSchema = collections.FirstOrDefault(x => x["name"] == UserModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
+		var userCollectionModel = new CollectionModel
+		{
+			CacheRetentionTime = null,
+			Slug = UserModel.CollectionName,
+			Schema = JsonDocument.Parse(userSchema.ToJson()),
+			Name = "Users",
+			IsInbuilt = true
+		};
+
+		await collectionCollection.InsertOneAsync(userCollectionModel);
+
+		var groupSchema = collections.FirstOrDefault(x => x["name"] == GroupModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
+		var groupCollectionModel = new CollectionModel
+		{
+			CacheRetentionTime = null,
+			Slug = GroupModel.CollectionName,
+			Schema = JsonDocument.Parse(groupSchema.ToJson()),
+			Name = "Groups",
+			IsInbuilt = true
+		};
+
+		await collectionCollection.InsertOneAsync(groupCollectionModel);
 	}
 
 	if (collectionNames.Contains(GroupModel.CollectionName) == false)

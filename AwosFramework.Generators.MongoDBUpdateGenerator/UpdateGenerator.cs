@@ -4,9 +4,12 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Data.SqlTypes;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace AwosFramework.Generators.MongoDBUpdateGenerator
 {
@@ -23,52 +26,192 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				ctx.PublishInternalEnum<CollectionHandling>();
 			});
 
-			IncrementalValuesProvider<UpdateApiModel?> updatesToGenerate = context.SyntaxProvider
+			IncrementalValuesProvider<UpdateApiModel?> updates = context.SyntaxProvider
 				.CreateSyntaxProvider(
 					predicate: IsSyntaxTargetForGeneration,
 					transform: Transform
 				).Where(x => x!=null);
 
+			var classDeclarations = context.SyntaxProvider
+				.CreateSyntaxProvider(
+					predicate: IsClassSyntax,
+					transform: TransformToTargetClass
+				).Collect();
+
+			var updatesToGenerate = classDeclarations.Combine(updates.Collect())
+				.Select(CombineWithTargetProperties);
 
 			context.RegisterSourceOutput(updatesToGenerate, GenerateSource);
+		}
+
+		private static void UpdateSourceMethodProperties(UpdateMethod method, TargetClassModel targetClass, List<Diagnostic> diagnostics)
+		{
+			var newProperties = new List<UpdateProperty>();
+
+			foreach (var sourceProperty in method.Properties)
+			{
+				if (targetClass.Properties.TryGetValue(sourceProperty.TargetName, out var targetProperty) == false)
+				{
+					diagnostics.Add(Diagnostic.Create(Constants.PropertyNotFound, sourceProperty.SourceLocation, sourceProperty.TargetName, method.TargetClassName));
+				}
+				else
+				{
+					if (targetProperty.IsEnumerable == false && sourceProperty.IsSourceEnumerable)
+					{
+						diagnostics.Add(Diagnostic.Create(Constants.PropertyNotEnumerable, sourceProperty.SourceLocation, sourceProperty.TargetName, method.TargetClassName));
+						continue;
+					}
+
+					sourceProperty.IsTargetEnumerable = targetProperty.IsEnumerable;
+					newProperties.Add(sourceProperty);
+				}
+			}
+
+			method.Properties = newProperties.ToArray();
+		}
+
+		private static readonly Regex ARRAY_PATTERN = new Regex(@"^([^\s\[\]]+)(\[(-?\d+)\])?$");
+
+		private static void ResolveNestedProperties(ImmutableDictionary<string, TargetClassModel> classes, UpdateMethod method, List<Diagnostic> diagnostics)
+		{
+			if(method.NestedProperty != null )
+			{
+				if(classes.TryGetValue(method.TargetClassName, out var targetClass) == false)
+				{
+					diagnostics.Add(Diagnostic.Create(Constants.ClassNotFound, method.SourceLocation, method.TargetClassName));
+					return;
+				}
+
+
+				var path = method.NestedProperty.Split('.');
+				TargetClassModel current = targetClass;
+				foreach(var part in path)
+				{
+					var match = ARRAY_PATTERN.Match(part);
+					if(match.Success == false)
+					{
+						diagnostics.Add(Diagnostic.Create(Constants.InvalidNestedProperty, method.SourceLocation, part, current.FullName));
+						return;
+					}
+					
+					var propertyName = match.Groups[1].Value;
+					var isArray = match.Groups[3].Success;
+
+					if (current.Properties.TryGetValue(propertyName, out var nestedProperty) == false)
+					{
+						diagnostics.Add(Diagnostic.Create(Constants.PropertyNotFound, method.SourceLocation, part, current.FullName));
+						return;
+					}
+
+					if(nestedProperty.IsEnumerable == false && isArray)
+					{
+						diagnostics.Add(Diagnostic.Create(Constants.PropertyNotEnumerable, method.SourceLocation, nestedProperty.Name, current.FullName));
+						return;
+					}
+
+					if(classes.TryGetValue(nestedProperty.Type, out current) == false)
+					{
+						diagnostics.Add(Diagnostic.Create(Constants.ClassNotFound, method.SourceLocation, nestedProperty.Type));
+						return;
+					}
+				}
+
+				method.NestedTargetClassName = current.FullName;
+			}
+		}
+
+		private static IEnumerable<UpdateApiModel> CombineWithTargetProperties((ImmutableArray<TargetClassModel> targetClasses, ImmutableArray<UpdateApiModel> sourceClasses) pair, CancellationToken token)
+		{
+			(var targetClasses, var sourceClasses) = pair;
+			var classLookup = targetClasses.ToImmutableDictionary(x => x.FullName, x => x);
+			foreach (var source in sourceClasses)
+			{
+				foreach (var method in source.UpdateMethods)
+				{
+					ResolveNestedProperties(classLookup, method, source.Diagnostics);
+					if(classLookup.TryGetValue(method.GetTargetClassFullName(), out var targetClass) == false)
+					{
+						source.Diagnostics.Add(Diagnostic.Create(Constants.ClassNotFound, method.SourceLocation, method.TargetClassName));
+						continue;
+					}
+
+					UpdateSourceMethodProperties(method, targetClass, source.Diagnostics);
+				}
+			}
+
+			return sourceClasses;
+		}
+
+		static bool IsClassSyntax(SyntaxNode node, CancellationToken token) => node is ClassDeclarationSyntax;
+
+		private static TargetClassModel TransformToTargetClass(GeneratorSyntaxContext ctx, CancellationToken token)
+		{
+			var classDeclaration = (ClassDeclarationSyntax)ctx.Node;
+			var className = classDeclaration.Identifier.Text;
+			var isGeneric = classDeclaration?.TypeParameterList != null;
+			if (isGeneric)
+			{
+				var comaCount = classDeclaration.TypeParameterList.Parameters.Count - 1;
+				var comas = comaCount > 0 ? new string(',', comaCount) : string.Empty;
+				className += $"<{comas}>";
+			}
+
+			var nameSpace = ctx.SemanticModel.GetDeclaredSymbol(classDeclaration)?.ContainingNamespace?.ToDisplayString();
+			var properties = classDeclaration.Members.OfType<PropertyDeclarationSyntax>().Select(x =>
+			{
+				var name = x.Identifier.Text;
+				var isEnumerable = IsEnumerableOrArrayType(ctx, x, out var isString);
+				var symbol = ctx.SemanticModel.GetSymbolInfo(x.Type).Symbol;
+				var type = isEnumerable && symbol is INamedTypeSymbol namedType && namedType.IsGenericType ? namedType.TypeArguments[0].ToDisplayString() : symbol?.ToDisplayString();
+				return new TargetProperty(name, type, isEnumerable, isString);
+			}).ToArray();
+
+			return new TargetClassModel(className, nameSpace, properties);
 		}
 
 		static bool IsSyntaxTargetForGeneration(SyntaxNode node, CancellationToken token) => node is ClassDeclarationSyntax m && m.AttributeLists.Count > 0;
 
 		private static string? GeneratePropertyIfSource(UpdateProperty property, string modelParamName)
 		{
-			if (property.IsEnumerable)
+			var propertyAccess = property.BuildSourcePropertyAccessCode(modelParamName);
+			if (property.IsSourceEnumerable)
 			{
 				if (property.IgnoreNull && property.IgnoreEmpty)
-					return $"if({modelParamName}.{property.SourceName} != null && {modelParamName}.{property.SourceName}.Count() > 0)";
+					return $"if({propertyAccess} != null && {propertyAccess}.Count() > 0)";
 				else if (property.IgnoreNull)
-					return $"if({modelParamName}.{property.SourceName} != null)";
+					return $"if({propertyAccess} != null)";
 				else if (property.IgnoreEmpty)
-					return $"if({modelParamName}.{property.SourceName}.Count() > 0)";
+					return $"if({propertyAccess}.Count() > 0)";
 				else
 					return null;
 			}
 			else
 			{
 				if (property.IgnoreNull)
-					return $"if({modelParamName}.{property.SourceName} != null)";
+					return $"if({propertyAccess} != null)";
 				else
 					return null;
 			}
 		}
 
 
-		private static string GeneratePropertySource(UpdateApiModel model, UpdateProperty property, string listName, string modelParamName)
+		private static string GeneratePropertySource(UpdateApiModel model, UpdateMethod method, UpdateProperty property, string listName, string modelParamName)
 		{
-			if (property.IsEnumerable)
+			var sourcePropertyAccess = property.BuildSourcePropertyAccessCode(modelParamName);
+			var targetPropertyAccess = property.BuildTargetPropertyAccessCode(method.NestedProperty);
+			if (property.IsTargetEnumerable)
 			{
 				var ifLine = GeneratePropertyIfSource(property, modelParamName);
-				var setName = property.CollectionHandling switch
+				var setName = (property.CollectionHandling, property.IsSourceEnumerable) switch
 				{
-					CollectionHandling.Set => "Set",
-					CollectionHandling.AddToSet => "AddToSetEach",
-					CollectionHandling.PushAll => "PushAll",
-					CollectionHandling.PullAll => "PullAll",
+					(CollectionHandling.Set, true) => "Set",
+					(CollectionHandling.AddToSet, true) => "AddToSetEach",
+					(CollectionHandling.PushAll, true) => "PushAll",
+					(CollectionHandling.PullAll, true) => "PullAll",
+					(CollectionHandling.Set, false) => "Set",
+					(CollectionHandling.AddToSet, false) => "AddToSet",
+					(CollectionHandling.PushAll, false) => "Push",
+					(CollectionHandling.PullAll, false) => "Pull",
 					_ => null
 				};
 
@@ -78,28 +221,28 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 					return null;
 				}
 
-				var listAdd = $"{listName}.Add(builder.{setName}(x => x.{property.TargetName}, {modelParamName}.{property.SourceName}));";
+				var listAdd = $"{listName}.Add(builder.{setName}(x => x.{targetPropertyAccess}, {sourcePropertyAccess}));";
 				return ifLine == null ? listAdd : $"{ifLine}\n\t{listAdd}";
 			}
 			else if (property.UseStringEmpty)
 			{
 				return
 				$$"""
-				if(string.IsNullOrEmpty({{modelParamName}}.{{property.SourceName}}) == false)
-					{{listName}}.Add(builder.Set(x => x.{{property.TargetName}}, {{modelParamName}}.{{property.SourceName}}));
+				if(string.IsNullOrEmpty({{sourcePropertyAccess}}) == false)
+					{{listName}}.Add(builder.Set(x => x.{{targetPropertyAccess}}, {{sourcePropertyAccess}}));
 				""";
 			}
 			else
 			{
 				var ifLine = GeneratePropertyIfSource(property, modelParamName);
-				var listAdd = $"{listName}.Add(builder.Set(x => x.{property.TargetName}, {modelParamName}.{property.SourceName}));";
+				var listAdd = $"{listName}.Add(builder.Set(x => x.{targetPropertyAccess}, {sourcePropertyAccess}));";
 				return ifLine == null ? listAdd : $"{ifLine}\n\t{listAdd}";
 			}
 		}
 
 		private static string GenerateExtensionUpdateMethod(SourceProductionContext ctx, UpdateApiModel apiModel, UpdateMethod method)
 		{
-			var propertySources = method.Properties.SelectNonNull(x => GeneratePropertySource(apiModel, x, "list", Constants.ModelParameterName)).ToArray();
+			var propertySources = method.Properties.SelectNonNull(x => GeneratePropertySource(apiModel, method, x, "list", Constants.ModelParameterName)).ToArray();
 			var methodTemplate =
 			$$"""
 			public static UpdateDefinition<{{method.TargetClassName}}> {{method.MethodName}}(this {{apiModel.SourceClassNameSpace}}.{{apiModel.SourceClassName}} {{Constants.ModelParameterName}})
@@ -118,7 +261,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 		private static string GeneratePartialUpdateMethod(UpdateApiModel apiModel, UpdateMethod method)
 		{
-			var propertySources = method.Properties.SelectNonNull(x => GeneratePropertySource(apiModel, x, "list", "this")).ToArray();
+			var propertySources = method.Properties.SelectNonNull(x => GeneratePropertySource(apiModel, method, x, "list", "this")).ToArray();
 			var methodTemplate =
 			$$"""
 			public UpdateDefinition<{{method.TargetClassName}}> {{method.MethodName}}()
@@ -135,11 +278,21 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			return methodTemplate;
 		}
 
-		private static void GenerateSource(SourceProductionContext ctx, UpdateApiModel apiModel)
+		private static void GenerateSource(SourceProductionContext ctx, IEnumerable<UpdateApiModel> models)
+		{
+			foreach (var model in models)
+			{
+				if (ctx.CancellationToken.IsCancellationRequested)
+					break;
+
+				GenerateSourceItem(ctx, model);
+			}
+		}
+
+		private static void GenerateSourceItem(SourceProductionContext ctx, UpdateApiModel apiModel)
 		{
 			if (apiModel.UpdateMethods.Any() == false)
 				return;
-
 
 			var partialMethods = apiModel.UpdateMethods.Where(x => x.UsePartialClass).Select(x => GeneratePartialUpdateMethod(apiModel, x)).ToArray();
 			if (partialMethods.Any())
@@ -209,6 +362,66 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			return IsEnumerableOrArrayType(typeSymbol, out isString);
 		}
 
+
+		private static UpdateProperty ParseUpdatePropertyAttribute(GeneratorSyntaxContext ctx, (ISymbol symbol, AttributeSyntax attr, bool isOnClass) updateAttribute, bool isEnumerable, bool isNullable, bool isString, List<Diagnostic> diagnostics, string? sourceName = null)
+		{
+			var methodName = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
+				Constants.UpdatePropertyAttribute_MethodName_PropertyName,
+				Constants.UpdatePropertyAttribute_MethodName_DefaultValue, out _);
+
+			var applyToAll = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
+				Constants.UpdatePropertyAttribute_ApplyToAllMethods_PropertyName,
+				Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, out _);
+
+			var semantic = ctx.SemanticModel;
+			var targetPropertyName = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+				Constants.UpdatePropertyAttribute_TargetPropertyName_PropertyName,
+				Constants.UpdatePropertyAttribute_TargetPropertyName_DefaultValue, out var targetPropertyNameSet);
+
+			var ignoreEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+				Constants.UpdatePropertyAttribute_IgnoreEmpty_PropertyName,
+				Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue, out var ignoreEmptySet);
+
+			var ignoreNull = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+				Constants.UpdatePropertyAttribute_IgnoreNull_PropertyName,
+				Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue, out var ignoreNullSet);
+
+			var collectionHandling = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+				Constants.UpdatePropertyAttribute_CollectionHandling_PropertyName,
+				Constants.UpdatePropertyAttribute_CollectionHandling_DefaultValue, out var collectionHandlingSet);
+
+			var useStringEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+				Constants.UpdatePropertyAttribute_UseStringEmpty_PropertyName,
+				Constants.UpdatePropertyAttribute_UseStringEmpty_DefaultValue, out var useStringEmptySet);
+
+			var isSourceArray = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+				Constants.UpdatePropertyAttribute_IsSourceArray_PropertyName,
+				Constants.UpdatePropertyAttribute_IsSourceArray_DefaultValue, out var isSourceArraySet);
+
+			var isPropertyEnumerable = updateAttribute.isOnClass ? isSourceArray : isEnumerable;
+
+			var update = new UpdateProperty(sourceName, isPropertyEnumerable, methodName, applyToAll, false,
+				updateAttribute.attr.GetLocation(), updateAttribute.isOnClass, targetPropertyName, ignoreNull && isNullable,
+				ignoreEmpty && isEnumerable, collectionHandling, isString && useStringEmpty);
+
+			if (isSourceArraySet && updateAttribute.isOnClass == false)
+				diagnostics.Add(Diagnostic.Create(Constants.IsSourceArrayNotApplicable, updateAttribute.attr.GetLocation()));
+
+			if (updateAttribute.isOnClass && targetPropertyNameSet == false)
+				diagnostics.Add(Diagnostic.Create(Constants.TargetPropertyNameMissing, updateAttribute.attr.GetLocation()));
+
+			if (isNullable == false && ignoreNullSet)
+				diagnostics.Add(Diagnostic.Create(Constants.IgnoreNullNotApplicable, updateAttribute.attr.GetLocation()));
+
+			if (isString == false && useStringEmptySet)
+				diagnostics.Add(Diagnostic.Create(Constants.UseStringEmptyNotApplicable, updateAttribute.attr.GetLocation()));
+
+			if (isEnumerable == false && ignoreEmptySet)
+				diagnostics.Add(Diagnostic.Create(Constants.IgnoreEmptyNotApplicable, updateAttribute.attr.GetLocation()));
+
+			return update;
+		}
+
 		private static IEnumerable<UpdateProperty> GetProperties(GeneratorSyntaxContext ctx, List<Diagnostic> diagnostics, PropertyDeclarationSyntax property)
 		{
 			var ignore = property.AttributeLists.SelectMany(x => x.Attributes)
@@ -219,7 +432,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				yield break;
 
 			var updateAttributes = property.AttributeLists.SelectMany(x => x.Attributes)
-				.Select(x => (symbol: ctx.SemanticModel.GetSymbolInfo(x).Symbol, attr: x))
+				.Select(x => (symbol: ctx.SemanticModel.GetSymbolInfo(x).Symbol, attr: x, isOnClass: false))
 				.Where(x => x.symbol != null && x.symbol.ContainingType.ToDisplayString() == Constants.UpdatePropertyAttributeClassFullName);
 
 			var isEnumerable = IsEnumerableOrArrayType(ctx, property, out var isString);
@@ -227,58 +440,16 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 			if (updateAttributes.Any())
 			{
-
 				foreach (var updateAttribute in updateAttributes)
 				{
-					var methodName = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
-						Constants.UpdatePropertyAttribute_MethodName_PropertyName,
-						Constants.UpdatePropertyAttribute_MethodName_DefaultValue, out _);
-
-					var applyToAll = updateAttribute.attr.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
-						Constants.UpdatePropertyAttribute_ApplyToAllMethods_PropertyName,
-						Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, out _);
-
-					var semantic = ctx.SemanticModel;
-					var targetPropertyName = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-						Constants.UpdatePropertyAttribute_TargetPropertyName_PropertyName,
-						Constants.UpdatePropertyAttribute_TargetPropertyName_DefaultValue, out _);
-
-					var ignoreEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-						Constants.UpdatePropertyAttribute_IgnoreEmpty_PropertyName,
-						Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue, out var ignoreEmptySet);
-
-					var ignoreNull = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-						Constants.UpdatePropertyAttribute_IgnoreNull_PropertyName,
-						Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue, out var ignoreNullSet);
-
-					var collectionHandling = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-						Constants.UpdatePropertyAttribute_CollectionHandling_PropertyName,
-						Constants.UpdatePropertyAttribute_CollectionHandling_DefaultValue, out var collectionHandlingSet);
-
-					var useStringEmpty = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
-						Constants.UpdatePropertyAttribute_UseStringEmpty_PropertyName,
-						Constants.UpdatePropertyAttribute_UseStringEmpty_DefaultValue, out var useStringEmptySet);
-
-					var update = new UpdateProperty(property.Identifier.Text, isEnumerable, methodName, applyToAll, false, updateAttribute.attr.GetLocation(), targetPropertyName, ignoreNull && isNullable, ignoreEmpty && isEnumerable, collectionHandling, isString && useStringEmpty);
-
-					if(isNullable == false && ignoreNullSet)
-						diagnostics.Add(Diagnostic.Create(Constants.IgnoreNullNotApplicable, updateAttribute.attr.GetLocation()));
-
-					if (isString == false && useStringEmptySet)
-						diagnostics.Add(Diagnostic.Create(Constants.UseStringEmptyNotApplicable, updateAttribute.attr.GetLocation()));
-
-					if (isEnumerable == false && collectionHandlingSet)
-						diagnostics.Add(Diagnostic.Create(Constants.CollectionHandlingNotApplicable, updateAttribute.attr.GetLocation()));
-
-					if (isEnumerable == false && ignoreEmptySet)
-						diagnostics.Add(Diagnostic.Create(Constants.IgnoreEmptyNotApplicable, updateAttribute.attr.GetLocation()));
-
-					yield return update;
+					yield return ParseUpdatePropertyAttribute(ctx, updateAttribute, isEnumerable, isNullable, isString, diagnostics, property.Identifier.Text);
 				}
 			}
 			else
 			{
-				yield return new UpdateProperty(property.Identifier.Text, isEnumerable, Constants.UpdatePropertyAttribute_MethodName_DefaultValue, Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, true, property.GetLocation());
+				yield return new UpdateProperty(property.Identifier.Text, isEnumerable,
+					Constants.UpdatePropertyAttribute_MethodName_DefaultValue,
+					Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, true, property.GetLocation(), false);
 			}
 		}
 
@@ -293,20 +464,29 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			if (attributes.Any() == false)
 				return null;
 
-
 			var methodNameSet = new HashSet<string>();
 			var diagnostics = new List<Diagnostic>();
 			var methods = new List<UpdateMethod>();
 
+			var classProperties = classDeclaration.AttributeLists.SelectMany(x => x.Attributes)
+				.Select(x => (symbol: ctx.SemanticModel.GetSymbolInfo(x).Symbol, attr: x, isOnClass: true))
+				.Where(x => x.symbol != null && x.symbol.ContainingType.ToDisplayString() == Constants.UpdatePropertyAttributeClassFullName)
+				.Select(x => ParseUpdatePropertyAttribute(ctx, x, false, true, false, diagnostics));
+
 			var properties = classDeclaration.Members.OfType<PropertyDeclarationSyntax>()
 				.SelectMany(x => GetProperties(ctx, diagnostics, x))
+				.Concat(classProperties)
 				.ToArray();
+
 
 			var className = classDeclaration.Identifier.ToString();
 			var nameSpace = ctx.SemanticModel.GetDeclaredSymbol(classDeclaration)?.ContainingNamespace?.ToDisplayString();
 
 			foreach (var attribute in attributes)
 			{
+				if (token.IsCancellationRequested)
+					break;
+
 				if (attribute == null)
 					continue;
 
@@ -330,6 +510,11 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 					Constants.MarkerAttribute_UsePartialClass_DefaultValue, out var usePartialClassSet
 				);
 
+				var nestedProperty = attribute.GetNamedAttributeValueOrDefault(ctx.SemanticModel,
+					Constants.MarkerAttribute_NestedProperty_PropertyName,
+					Constants.MarkerAttribute_NestedProperty_DefaultValue, out _
+				);
+
 				if (methodNameSet.Contains(methodName))
 				{
 					diagnostics.Add(Diagnostic.Create(Constants.MethodNameAlreadyExists, attribute.GetLocation(), methodName));
@@ -347,8 +532,12 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 					usePartialClass = false;
 				}
 
-				var propertiesForMethod = properties.Where(x => (x.ApplyToAllMethods || x.MethodName == methodName) && (ignoreUnmarkedProperty && x.IsUnmarked) == false).ToArray();
-				var updateMethod = new UpdateMethod(entityType, methodName, propertiesForMethod, usePartialClass && isPartialClass);
+				// if method sets one target property directly ignore properties
+				var propertiesForMethod = properties
+					.Where(x => (x.ApplyToAllMethods || x.MethodName == methodName) && (ignoreUnmarkedProperty && x.IsUnmarked) == false)
+					.ToArray();
+
+				var updateMethod = new UpdateMethod(entityType, methodName, propertiesForMethod, attribute.GetLocation(), usePartialClass && isPartialClass, nestedProperty);
 				methods.Add(updateMethod);
 			}
 

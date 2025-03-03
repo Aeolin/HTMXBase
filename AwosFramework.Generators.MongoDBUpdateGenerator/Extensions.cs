@@ -17,7 +17,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				return defaultValue;
 			}
 
-			var argument = attribute.ArgumentList.Arguments.FirstOrDefault(x => x.NameEquals?.Name.Identifier.Text == propertyName);
+			var argument = attribute.ArgumentList?.Arguments.FirstOrDefault(x => x.NameEquals?.Name.Identifier.Text == propertyName);
 			if (argument == null)
 			{
 				wasSet = false; 

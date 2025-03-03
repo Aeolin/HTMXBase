@@ -12,7 +12,7 @@ namespace MongoDBSemesterProjekt.Models
 		public TimeSpan? CacheRetentionTime { get; set; }
 		public required JsonDocument Schema { get; set; }
 		public IList<TemplateModel> Templates { get; set; } = new List<TemplateModel>();
-
+		public bool IsInbuilt { get; set; }
 		public string? DefaultTemplate { get; set; }
 		public string? QueryPermission { get; set; }
 		public string? InsertPermission { get; set; }
