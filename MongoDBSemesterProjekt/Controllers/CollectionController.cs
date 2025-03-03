@@ -9,6 +9,7 @@ using MongoDBSemesterProjekt.Utils;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
+using MongoDBSemesterProjekt.Services.TemplateStore;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -16,8 +17,11 @@ namespace MongoDBSemesterProjekt.Controllers
 	[Route("/api/v1/collections")]
 	public class CollectionController : HtmxBaseController
 	{
-		public CollectionController(IMongoDatabase dataBase, IMapper mapper) : base(dataBase, mapper)
+		private readonly IHtmxTemplateStore _templateStore;
+
+		public CollectionController(IMongoDatabase dataBase, IMapper mapper, IHtmxTemplateStore templateStore) : base(dataBase, mapper)
 		{
+			_templateStore=templateStore;
 		}
 
 		[HttpGet("{collectionSlug}/paginate")]
@@ -117,6 +121,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NotFound("Collection not found");
 
+			_templateStore.NotifyTemplateChanged(false, collectionSlug, template.Slug);
 			return Ok(template);
 		}
 
@@ -137,7 +142,28 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NotFound("Collection not found");
 
+			_templateStore.NotifyTemplateChanged(false, collectionSlug, templateSlug);
 			return Ok(template);
+		}
+
+		[HttpDelete("collection/{collectionSlug}/templates/{templateSlug}")]
+		[ProducesResponseType(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[Permission("collection/delete-template", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		public async Task<IActionResult> DeleteTemplateAsync(string collectionSlug, string templateSlug)
+		{
+			var dbCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+			var filter = Builders<CollectionModel>.Filter.Where(x => x.Slug == collectionSlug && x.Templates.Any(x => x.Slug == templateSlug));
+			var collection = await dbCollection.FindOneAndUpdateAsync(
+				x => x.Slug == collectionSlug && x.Templates[-1].Slug == templateSlug,
+				Builders<CollectionModel>.Update.PullFilter(x => x.Templates, Builders<TemplateModel>.Filter.Eq(x => x.Slug, templateSlug)),
+				GetReturnUpdatedOptions<CollectionModel>());
+		
+			if (collection == null)
+				return NotFound("Collection not found");
+
+			_templateStore.NotifyTemplateChanged(true, collectionSlug, templateSlug);
+			return Ok();
 		}
 
 
@@ -164,6 +190,10 @@ namespace MongoDBSemesterProjekt.Controllers
 			};
 
 			await _db.CreateCollectionAsync(collection.Slug, options);
+
+			if(collection.Templates.Length > 0)
+				_templateStore.NotifyTemplateChanged(false, collection.Slug);
+
 			return Ok(_mapper.Map<ApiCollection>(model));
 		}
 
@@ -179,6 +209,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (result.DeletedCount == 0)
 				return NotFound("Collection either doesnt exist or is inbuilt");
 
+			_templateStore.NotifyTemplateChanged(true, collectionSlug);
 			await _db.DropCollectionAsync(collectionSlug);
 			return Ok();
 		}

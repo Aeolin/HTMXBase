@@ -13,5 +13,8 @@ namespace MongoDBSemesterProjekt.ApiModels
 		
 		[UpdateProperty]
 		public string Template { get; set; }
+
+		[UpdateProperty]
+		public bool Disabled { get; set; }
 	}
 }

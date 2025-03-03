@@ -102,10 +102,13 @@ using (var scope = app.Services.CreateScope())
 		await userCollection.Indexes.CreateOneAsync(new CreateIndexModel<UserModel>(Builders<UserModel>.IndexKeys.Ascending(x => x.Email), new CreateIndexOptions { Unique = true }));
 		await userCollection.Indexes.CreateOneAsync(new CreateIndexModel<UserModel>(Builders<UserModel>.IndexKeys.Ascending(x => x.Username), new CreateIndexOptions { Unique = true }));
 		
+		
 		var groupCollection = db.GetCollection<GroupModel>(GroupModel.CollectionName);
 		await groupCollection.Indexes.CreateOneAsync(new CreateIndexModel<GroupModel>(Builders<GroupModel>.IndexKeys.Ascending(x => x.Slug), new CreateIndexOptions { Unique = true }));
 
 		var collectionCollection = db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+		await collectionCollection.Indexes.CreateOneAsync(new CreateIndexModel<CollectionModel>(Builders<CollectionModel>.IndexKeys.Ascending(x => x.Slug), new CreateIndexOptions { Unique = true }));
+		await collectionCollection.Indexes.CreateOneAsync(new CreateIndexModel<CollectionModel>(Builders<CollectionModel>.IndexKeys.Ascending(x => x.Templates[-1].Slug), new CreateIndexOptions { Unique = true }));
 
 		var userSchema = collections.FirstOrDefault(x => x["name"] == UserModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
 		var userCollectionModel = new CollectionModel

@@ -52,7 +52,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			{
 				if (targetClass.Properties.TryGetValue(sourceProperty.TargetName, out var targetProperty) == false)
 				{
-					diagnostics.Add(Diagnostic.Create(Constants.PropertyNotFound, sourceProperty.SourceLocation, sourceProperty.TargetName, method.TargetClassName));
+					diagnostics.Add(Diagnostic.Create(Constants.PropertyNotFound, sourceProperty.SourceLocation, sourceProperty.TargetName, targetClass.FullName));
 				}
 				else
 				{

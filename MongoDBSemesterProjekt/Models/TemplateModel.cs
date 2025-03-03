@@ -11,5 +11,7 @@ namespace MongoDBSemesterProjekt.Models
 		public bool SingleItem { get; set; } = true;
 
 		public required string Template { get; set; }
+
+		public bool Disabled { get; set; }
 	}
 }

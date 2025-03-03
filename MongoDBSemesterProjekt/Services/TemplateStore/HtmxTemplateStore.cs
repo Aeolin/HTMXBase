@@ -14,7 +14,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 		private readonly IInMemoryCache<string, HandlebarsTemplate<object, object>> _cache;
 		private readonly IHandlebars _handleBars;
 		private readonly HashSet<string> _collectionIds;
-		private readonly Task _initTask;
+		private Task _initTask;
 
 		public HtmxTemplateStore(IMongoDatabase mongoClient, IInMemoryCache<string, HandlebarsTemplate<object, object>> cache, IHandlebars handleBars)
 		{
@@ -33,7 +33,47 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 		{
 			var collections = await _db.GetCollection<CollectionModel>("collections").Find(x => x.Templates.Count > 0).ToListAsync();
 			foreach (var collection in collections)
-				_collectionIds.AddRange(collection.Templates.Select(x => MakeKey(collection.Slug, x.Slug)));
+				_collectionIds.AddRange(collection.Templates.Where(x => x.Disabled == false).Select(x => MakeKey(collection.Slug, x.Slug)));
+		}
+
+		private async Task UpdateAsync(string collectionSlug)
+		{
+			var collection = await _db.GetCollection<CollectionModel>("collections").Find(x => x.Templates.Count > 0 && x.Slug == collectionSlug).FirstOrDefaultAsync();
+			if (collection != null)
+				_collectionIds.AddRange(collection.Templates.Where(x => x.Disabled == false).Select(x => MakeKey(collection.Slug, x.Slug)));
+		}
+
+		public void NotifyTemplateChanged(bool deleted, string? collectionSlug = null, string? templateSlug = null)
+		{
+			if (deleted)
+			{
+				if (templateSlug == null)
+				{
+					var toRemove = _collectionIds.Where(x => x.StartsWith(collectionSlug + ":")).ToArray();
+					toRemove.ForEach(x =>
+					{
+						_collectionIds.Remove(x);
+						_cache.Unset(x);
+					});
+				}
+				else
+				{
+					_collectionIds.Remove(MakeKey(collectionSlug, templateSlug));
+					_cache.Unset(MakeKey(collectionSlug, templateSlug));
+				}
+			}
+			else if(collectionSlug != null)
+			{
+				if (templateSlug == null)
+				{
+					_initTask.Wait();
+					_initTask = UpdateAsync(collectionSlug);
+				}
+				else
+				{
+					_collectionIds.Add(MakeKey(collectionSlug, templateSlug));
+				}
+			}
 		}
 
 		private string MakeKey(string collectionId, string? templateId = null) => $"{collectionId}:{templateId}";
@@ -67,5 +107,6 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 			_initTask.GetAwaiter().GetResult();
 			return _collectionIds.Contains(MakeKey(collectionId, templateId));
 		}
+
 	}
 }
