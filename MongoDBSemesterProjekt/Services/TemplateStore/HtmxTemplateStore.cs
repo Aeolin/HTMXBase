@@ -43,36 +43,53 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 				_collectionIds.AddRange(collection.Templates.Where(x => x.Disabled == false).Select(x => MakeKey(collection.Slug, x.Slug)));
 		}
 
-		public void NotifyTemplateChanged(bool deleted, string? collectionSlug = null, string? templateSlug = null)
+		public void NotifyTemplateChanged(ModifyMode mode, string? collectionSlug = null, string? templateSlug = null)
 		{
-			if (deleted)
+			switch (mode)
 			{
-				if (templateSlug == null)
-				{
-					var toRemove = _collectionIds.Where(x => x.StartsWith(collectionSlug + ":")).ToArray();
-					toRemove.ForEach(x =>
+				case ModifyMode.Delete:
 					{
-						_collectionIds.Remove(x);
-						_cache.Unset(x);
-					});
-				}
-				else
-				{
-					_collectionIds.Remove(MakeKey(collectionSlug, templateSlug));
-					_cache.Unset(MakeKey(collectionSlug, templateSlug));
-				}
-			}
-			else if(collectionSlug != null)
-			{
-				if (templateSlug == null)
-				{
-					_initTask.Wait();
-					_initTask = UpdateAsync(collectionSlug);
-				}
-				else
-				{
-					_collectionIds.Add(MakeKey(collectionSlug, templateSlug));
-				}
+						if (templateSlug == null)
+						{
+							var toRemove = _collectionIds.Where(x => x.StartsWith(collectionSlug + ":")).ToArray();
+							toRemove.ForEach(x =>
+							{
+								_collectionIds.Remove(x);
+								_cache.Unset(x);
+							});
+						}
+						else
+						{
+							_collectionIds.Remove(MakeKey(collectionSlug, templateSlug));
+							_cache.Unset(MakeKey(collectionSlug, templateSlug));
+						}
+						break;
+					}
+
+				case ModifyMode.Modify:
+					{
+						if (collectionSlug != null && templateSlug != null)
+							_cache.Unset(MakeKey(collectionSlug, templateSlug));
+
+						break;
+					}
+
+				case ModifyMode.Add:
+					{
+						if (collectionSlug != null)
+						{
+							if (templateSlug == null)
+							{
+								_initTask.Wait();
+								_initTask = UpdateAsync(collectionSlug);
+							}
+							else
+							{
+								_collectionIds.Add(MakeKey(collectionSlug, templateSlug));
+							}
+						}
+						break;
+					}
 			}
 		}
 

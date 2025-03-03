@@ -121,7 +121,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NotFound("Collection not found");
 
-			_templateStore.NotifyTemplateChanged(false, collectionSlug, template.Slug);
+			_templateStore.NotifyTemplateChanged(ModifyMode.Add, collectionSlug, template.Slug);
 			return Ok(template);
 		}
 
@@ -142,7 +142,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NotFound("Collection not found");
 
-			_templateStore.NotifyTemplateChanged(false, collectionSlug, templateSlug);
+			_templateStore.NotifyTemplateChanged(ModifyMode.Modify, collectionSlug, templateSlug);
 			return Ok(template);
 		}
 
@@ -162,7 +162,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NotFound("Collection not found");
 
-			_templateStore.NotifyTemplateChanged(true, collectionSlug, templateSlug);
+			_templateStore.NotifyTemplateChanged(ModifyMode.Delete, collectionSlug, templateSlug);
 			return Ok();
 		}
 
@@ -192,7 +192,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			await _db.CreateCollectionAsync(collection.Slug, options);
 
 			if(collection.Templates.Length > 0)
-				_templateStore.NotifyTemplateChanged(false, collection.Slug);
+				_templateStore.NotifyTemplateChanged(ModifyMode.Add, collection.Slug);
 
 			return Ok(_mapper.Map<ApiCollection>(model));
 		}
@@ -209,7 +209,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (result.DeletedCount == 0)
 				return NotFound("Collection either doesnt exist or is inbuilt");
 
-			_templateStore.NotifyTemplateChanged(true, collectionSlug);
+			_templateStore.NotifyTemplateChanged(ModifyMode.Delete, collectionSlug);
 			await _db.DropCollectionAsync(collectionSlug);
 			return Ok();
 		}
