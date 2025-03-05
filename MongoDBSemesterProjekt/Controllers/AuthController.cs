@@ -47,7 +47,7 @@ namespace MongoDBSemesterProjekt.Controllers
 
 		[HttpPost("register")]
 		[AllowAnonymous]
-		public async Task<IActionResult> RegisterAsync([FromBody][FromForm] RegisterRequest request)
+		public async Task<IActionResult> RegisterAsync([FromJsonOrForm] RegisterRequest request)
 		{
 			var user = new UserModel
 			{
@@ -81,7 +81,7 @@ namespace MongoDBSemesterProjekt.Controllers
 
 		[HttpPost("login")]
 		[AllowAnonymous]
-		public async Task<IActionResult> LoginAsync([FromForm][FromBody] LoginRequest request, [FromQuery] bool useCookie = false)
+		public async Task<IActionResult> LoginAsync([FromJsonOrForm] LoginRequest request, [FromQuery] bool useCookie = false)
 		{
 			var lowerEmailOrUser = request.UsernameOrEmail.ToLower();
 			var user = _db.GetCollection<UserModel>(UserModel.CollectionName).Find(x => x.Username == lowerEmailOrUser || x.Email == lowerEmailOrUser).FirstOrDefault();

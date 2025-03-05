@@ -5,8 +5,9 @@ using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using YamlDotNet.Serialization;
 using System.ComponentModel;
+using MongoDBSemesterProjekt.Utils;
 
-namespace MongoDBSemesterProjekt.Utils
+namespace MongoDBSemesterProjekt.BsonSchema
 {
 	public static class BsonSchemaGenerator
 	{
@@ -32,10 +33,29 @@ namespace MongoDBSemesterProjekt.Utils
 
 		public static string ToBsonTypeName(this BsonType type)
 		{
-			if (type == BsonType.DateTime)
-				return "date";
-			else
-				return type.ToString().ToCamelCase();
+			return type switch
+			{
+				BsonType.Double => "double",
+				BsonType.String => "string",
+				BsonType.Document => "object",
+				BsonType.Array => "array",
+				BsonType.Binary => "binData",
+				BsonType.Undefined => "undefined",
+				BsonType.ObjectId => "objectId",
+				BsonType.Boolean => "bool",
+				BsonType.DateTime => "date",
+				BsonType.Null => "null",
+				BsonType.RegularExpression => "regex",
+				BsonType.JavaScript => "javascript",
+				BsonType.Symbol => "symbol",
+				BsonType.Int32 => "int",
+				BsonType.Timestamp => "timestamp",
+				BsonType.Int64 => "long",
+				BsonType.Decimal128 => "decimal",
+				BsonType.MinKey => "minKey",
+				BsonType.MaxKey => "maxKey",
+				_ => throw new ArgumentException($"Unknown BsonType {type}", nameof(type))
+			};
 		}
 
 		private static BsonType WriteElementType(IBsonWriter writer, IBsonSerializer serializer, bool isNullable)
@@ -81,12 +101,12 @@ namespace MongoDBSemesterProjekt.Utils
 				{
 					case BsonType.Array:
 						writer.WriteName("minItems");
-						writer.WriteInt32((int)x.Length);
+						writer.WriteInt32(x.Length);
 						break;
 
 					case BsonType.String:
 						writer.WriteName("minLength");
-						writer.WriteInt32((int)x.Length);
+						writer.WriteInt32(x.Length);
 						break;
 				}
 			});
@@ -100,12 +120,12 @@ namespace MongoDBSemesterProjekt.Utils
 				{
 					case BsonType.Array:
 						writer.WriteName("maxItems");
-						writer.WriteInt32((int)x.Length);
+						writer.WriteInt32(x.Length);
 						break;
 
 					case BsonType.String:
 						writer.WriteName("maxLength");
-						writer.WriteInt32((int)x.Length);
+						writer.WriteInt32(x.Length);
 						break;
 				}
 			});
@@ -123,6 +143,9 @@ namespace MongoDBSemesterProjekt.Utils
 				else
 					throw new NotImplementedException($"Unsupported minimum type: {x.Minimum.GetType()}");
 
+				writer.WriteName("exclusiveMinimum");
+				writer.WriteBoolean(x.MinimumIsExclusive);
+
 				writer.WriteName("maximum");
 				if (x.Maximum is int intMaximum)
 					writer.WriteInt32(intMaximum);
@@ -130,6 +153,9 @@ namespace MongoDBSemesterProjekt.Utils
 					writer.WriteDouble(doubleMaximum);
 				else
 					throw new NotImplementedException($"Unsupported maximum type: {x.Maximum.GetType()}");
+
+				writer.WriteName("exclusiveMaximum");
+				writer.WriteBoolean(x.MaximumIsExclusive);
 			});
 		}
 
@@ -204,7 +230,7 @@ namespace MongoDBSemesterProjekt.Utils
 			writer.WriteName(map.ElementName);
 			writer.WriteStartDocument();
 
-			var nullable = map.IsRequired == false && (map.MemberType.IsClass || (map.MemberType.IsGenericType && map.MemberType.GetGenericTypeDefinition() == typeof(Nullable<>)));
+			var nullable = map.IsRequired == false && (map.MemberType.IsClass || map.MemberType.IsGenericType && map.MemberType.GetGenericTypeDefinition() == typeof(Nullable<>));
 			var bsonType = WriteElementType(writer, serializer, nullable);
 
 			if (serializer is IBsonDocumentSerializer docSerializer)

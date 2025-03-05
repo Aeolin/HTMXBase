@@ -1,19 +1,25 @@
+using AutoMapper;
 using HandlebarsDotNet;
 using HandlebarsDotNet.Extension.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
+using MongoDBSemesterProjekt.ApiModels;
+using MongoDBSemesterProjekt.Authorization;
 using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.OutputFormatters;
 using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ObjectCache;
+using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
 using System.Collections.Frozen;
 using System.Reflection;
@@ -32,11 +38,16 @@ builder.Services.AddSingleton<IHandlebars>(HandlebarsEx.Create(cfg =>
 }));
 
 
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>(); 
 builder.Services.AddSingleton<PasswordHasher<UserModel>>();
-builder.Services.AddAutoMapper(opts => opts.AddMaps(typeof(Program).Assembly));
+
 builder.Services.AddControllers(opts =>
 {
 	opts.OutputFormatters.Add(new HtmxOutputFormatter());
+	
+}).AddJsonOptions(x =>
+{
+	x.JsonSerializerOptions.Converters.Add(new ObjectIdConverter());
 });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 
@@ -68,6 +79,7 @@ builder.Services.Configure<InMemoryCacheConfig>(x =>
 
 builder.Services.AddSingleton<IInMemoryCache<string, HandlebarsTemplate<object, object>>, InMemoryCache<string, HandlebarsTemplate<object, object>>>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IHtmxTemplateStore, HtmxTemplateStore>();
 builder.Services.AddEndpointsApiExplorer();
 var jwtConfig = config.GetSection("JwtOptions").Get<JwtOptions>();
 if (jwtConfig == null)
@@ -100,9 +112,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddAutoMapper(opts => {
+	opts.AddMaps(Assembly.GetExecutingAssembly());
+	opts.CreateMap<CollectionModel, ApiCollection>(MemberList.Destination);
+});
+
+
+
 var app = builder.Build();
 
 BsonSerializer.RegisterSerializer(new JsonDocumentSerializer(BsonType.String));
+
 
 using (var scope = app.Services.CreateScope())
 {
@@ -130,8 +150,8 @@ using (var scope = app.Services.CreateScope())
 
 			var collectionCollection = db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 			await collectionCollection.CreateUniqueKeyAsync(x => x.Slug);
-			await collectionCollection.CreateUniqueKeyAsync(x => x.Templates.Select(y => y.Slug));
 
+			collections = await db.ListCollections().ToListAsync();
 			var userSchema = collections.FirstOrDefault(x => x["name"] == UserModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
 			var userCollectionModel = new CollectionModel
 			{
@@ -155,6 +175,40 @@ using (var scope = app.Services.CreateScope())
 			};
 
 			await collectionCollection.InsertOneAsync(groupCollectionModel);
+
+			var collectionSchema = collections.FirstOrDefault(x => x["name"] == CollectionModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
+			var collectionCollectionModel = new CollectionModel
+			{
+				CacheRetentionTime = null,
+				Slug = CollectionModel.CollectionName,
+				Schema = JsonDocument.Parse(collectionSchema.ToJson()),
+				Name = "Collections",
+				IsInbuilt = true
+			};
+
+			await collectionCollection.InsertOneAsync(collectionCollectionModel);
+
+			var permissionAttributes = typeof(Program).Assembly.GetTypes()
+				.SelectMany(x => x.GetMethods())
+				.SelectMany(x => x.GetCustomAttributes<PermissionAttribute>())
+				.SelectMany(x => x.Groups.Select(y => new { Permission = x.Permission, Group = y }))
+				.GroupBy(x => x.Group);
+
+			List<GroupModel> groups = new();
+			foreach (var permission in permissionAttributes)
+			{
+				groups.Add(
+					new GroupModel
+					{
+						Name = permission.Key,
+						Slug = permission.Key.ToLower(),
+						Permissions = permission.Select(x => x.Permission).Distinct().ToList(),
+						Description = $"Autogenrated group {permission.Key}"
+					}
+				);
+			}
+
+			await groupCollection.InsertManyAsync(groups);
 			await session.CommitAsync();
 		}
 

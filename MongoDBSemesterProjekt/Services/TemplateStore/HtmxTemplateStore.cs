@@ -13,7 +13,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 		private readonly IMongoDatabase _db;
 		private readonly IInMemoryCache<string, HandlebarsTemplate<object, object>> _cache;
 		private readonly IHandlebars _handleBars;
-		private readonly HashSet<string> _collectionIds;
+		private readonly HashSet<string> _collectionIds = new HashSet<string>();
 		private Task _initTask;
 
 		public HtmxTemplateStore(IMongoDatabase mongoClient, IInMemoryCache<string, HandlebarsTemplate<object, object>> cache, IHandlebars handleBars)

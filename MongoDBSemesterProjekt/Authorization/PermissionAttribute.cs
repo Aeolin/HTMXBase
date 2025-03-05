@@ -7,14 +7,14 @@ namespace MongoDBSemesterProjekt.Authorization
 	public class PermissionAttribute : Attribute, IAuthorizationRequirement, IAuthorizationRequirementData
 	{
 		public string Permission { get; init; }
-		public string[] Roles { get; init; }
+		public string[] Groups { get; init; }
 		public bool IsOptional { get; init; }
 		public string Category { get; init; }
 
 		public PermissionAttribute(string permission, bool isOptional, params string[] roles)
 		{
 			Permission=permission;
-			Roles=roles;
+			Groups=roles;
 			IsOptional=isOptional;
 			var index = permission.IndexOf('/');
 			if (index >= 0)

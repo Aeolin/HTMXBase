@@ -5,6 +5,7 @@ using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
+using MongoDBSemesterProjekt.BsonSchema;
 using System.Collections;
 using System.Collections.Frozen;
 using System.ComponentModel.DataAnnotations;

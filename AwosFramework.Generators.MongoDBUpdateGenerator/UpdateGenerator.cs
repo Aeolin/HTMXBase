@@ -444,7 +444,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			{
 				yield return new UpdateProperty(property.Identifier.Text, isEnumerable,
 					Constants.UpdatePropertyAttribute_MethodName_DefaultValue,
-					Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, true, property.GetLocation(), false);
+					Constants.UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue, true, property.GetLocation(), false, ignoreNull: isNullable, useStringEmpty: isString);
 			}
 		}
 

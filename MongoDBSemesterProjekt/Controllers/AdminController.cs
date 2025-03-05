@@ -41,7 +41,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
 		[Permission("admin/create-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> CreateGroupAsync([FromBody] ApiGroup group)
+		public async Task<IActionResult> CreateGroupAsync([FromJsonOrForm] ApiGroup group)
 		{
 			var model = _mapper.Map<GroupModel>(group);
 			await _db.GetCollection<GroupModel>(GroupModel.CollectionName).InsertOneAsync(model);
@@ -65,7 +65,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> UpdateGroupAsync([FromRoute] string slug, [FromForm][FromBody] ApiGroupUpdateRequest update)
+		public async Task<IActionResult> UpdateGroupAsync([FromRoute] string slug, [FromJsonOrForm] ApiGroupUpdateRequest update)
 		{	
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
 				.FindOneAndUpdateAsync(x => x.Slug == slug, update.ToUpdate(), GetReturnUpdatedOptions<GroupModel>());
@@ -93,7 +93,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> UpdateGroupPermissionsAsync([FromRoute] string slug, [FromForm][FromBody] ApiSetPermissionRequest permissions)
+		public async Task<IActionResult> UpdateGroupPermissionsAsync([FromRoute] string slug, [FromJsonOrForm] ApiSetPermissionRequest permissions)
 		{
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
 				.FindOneAndUpdateAsync(x => x.Slug == slug, permissions.ToGroupAddPermission(), GetReturnUpdatedOptions<GroupModel>());
@@ -108,7 +108,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> RemoveGroupPermissionsAsync([FromRoute] string slug, [FromForm][FromBody] ApiSetPermissionRequest permissions)
+		public async Task<IActionResult> RemoveGroupPermissionsAsync([FromRoute] string slug, [FromJsonOrForm] ApiSetPermissionRequest permissions)
 		{
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
 				.FindOneAndUpdateAsync(x => x.Slug == slug, permissions.ToGroupRemovePermission(), GetReturnUpdatedOptions<GroupModel>());
@@ -164,7 +164,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> UpdateUserAsync([FromRoute] ObjectId id, [FromForm][FromBody] ApiUser update)
+		public async Task<IActionResult> UpdateUserAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiUser update)
 		{
 			var result = await _db.GetCollection<UserModel>(UserModel.CollectionName)
 				.FindOneAndUpdateAsync(x => x.Id == id, update.ToAdminUpdate(), GetReturnUpdatedOptions<UserModel>());
@@ -193,7 +193,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> UpdateUserGroupsAsync([FromRoute] ObjectId id, [FromForm][FromBody] ApiSetGroupRequest groups)
+		public async Task<IActionResult> UpdateUserGroupsAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiSetGroupRequest groups)
 		{
 			var result = await _db.GetCollection<UserModel>(UserModel.CollectionName)
 				.FindOneAndUpdateAsync(x => x.Id == id, groups.ToUserAddGroup(), GetReturnUpdatedOptions<UserModel>());
@@ -208,7 +208,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> RemoveUserGroupsAsync([FromRoute] ObjectId id, [FromForm][FromBody] ApiSetGroupRequest groups)
+		public async Task<IActionResult> RemoveUserGroupsAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiSetGroupRequest groups)
 		{
 			var result = await _db.GetCollection<UserModel>(UserModel.CollectionName)
 				.FindOneAndUpdateAsync(x => x.Id == id, groups.ToUserRemoveGroup(), GetReturnUpdatedOptions<UserModel>());

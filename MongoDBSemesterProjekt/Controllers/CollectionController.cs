@@ -10,6 +10,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
 using MongoDBSemesterProjekt.Services.TemplateStore;
+using MongoDB.Driver.Linq;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -22,6 +23,15 @@ namespace MongoDBSemesterProjekt.Controllers
 		public CollectionController(IMongoDatabase dataBase, IMapper mapper, IHtmxTemplateStore templateStore) : base(dataBase, mapper)
 		{
 			_templateStore=templateStore;
+		}
+
+		[HttpPost("{collectionSlug}/paginate")]
+		[ProducesResponseType<CursorResult<JsonDocument, ObjectId?>>(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status403Forbidden)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		public Task<IActionResult> PaginateFormAsync(string collectionSlug, [FromForm][Range(1, 100)] int limit = 20, [FromForm] ObjectId? cursor = null)
+		{
+			return PaginateAsync(collectionSlug, limit, cursor);
 		}
 
 		[HttpGet("{collectionSlug}/paginate")]
@@ -47,7 +57,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		public async Task<IActionResult> CreateDocumentAsync(string collectionSlug, [FromBody][FromForm] JsonDocument document)
+		public async Task<IActionResult> CreateDocumentAsync(string collectionSlug, [FromJsonOrForm]JsonDocument document)
 		{
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.InsertPermission == null || permissions.Contains(x.InsertPermission))).FirstOrDefaultAsync();
@@ -63,7 +73,8 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		public async Task<IActionResult> UpdateDocumentAsync(string collectionSlug, ObjectId documentId, [FromBody][FromForm] JsonDocument document)
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> UpdateDocumentAsync(string collectionSlug, ObjectId documentId, [FromJsonOrForm] JsonDocument document)
 		{
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.ModifyPermission == null || permissions.Contains(x.ModifyPermission))).FirstOrDefaultAsync();
@@ -94,7 +105,8 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType<CursorResult<JsonDocument, ObjectId?>>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromBody][FromForm] JsonDocument query, [FromQuery][Range(1, 250)] int limit = 50, [FromQuery] ObjectId? cursor = null)
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromJsonOrForm] JsonDocument query, [FromQuery][Range(1, 250)] int limit = 50, [FromQuery] ObjectId? cursor = null)
 		{
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.ComplexQueryPermission == null || permissions.Contains(x.ComplexQueryPermission))).FirstOrDefaultAsync();
@@ -110,22 +122,22 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok(CursorResult.Create(nextCursor, data.Select(x => JsonDocument.Parse(x.ToJson()))));
 		}
 
-		[HttpPost("collection/{collectionSlug}/templates")]
+		[HttpPost("{collectionSlug}/templates")]
 		[ProducesResponseType<ApiTemplate>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[Permission("collection/create-template", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> CreateTemplateAsync(string collectionSlug, [FromBody][FromForm] TemplateModel template)
+		public async Task<IActionResult> CreateTemplateAsync(string collectionSlug, [FromJsonOrForm] TemplateModel template)
 		{
 			var dbCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
-			var collection = await dbCollection.FindOneAndUpdateAsync(x => x.Slug == collectionSlug, template.ToAddTemplate());
+			var collection = await dbCollection.FindOneAndUpdateAsync(x => x.Slug == collectionSlug && x.Templates.Any(y => y.Slug == template.Slug) == false, template.ToAddTemplate(), GetReturnUpdatedOptions<CollectionModel>());
 			if (collection == null)
 				return NotFound("Collection not found");
 
 			_templateStore.NotifyTemplateChanged(ModifyMode.Add, collectionSlug, template.Slug);
-			return Ok(template);
+			return Ok(_mapper.Map<ApiTemplate>(collection.Templates.Last()));
 		}
 
-		[HttpPut("collection/{collectionSlug}/templates/{templateSlug}")]
+		[HttpPut("{collectionSlug}/templates/{templateSlug}")]
 		[ProducesResponseType<ApiTemplate>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[Permission("collection/modify-template", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
@@ -135,7 +147,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var filter = Builders<CollectionModel>.Filter.Where(x => x.Slug == collectionSlug && x.Templates.Any(x => x.Slug == templateSlug));
 
 			var collection = await dbCollection.FindOneAndUpdateAsync(
-				x => x.Slug == collectionSlug && x.Templates[-1].Slug == templateSlug, 
+				x => x.Slug == collectionSlug && x.Templates.FirstMatchingElement().Slug == templateSlug, 
 				template.ToUpdate(),
 				GetReturnUpdatedOptions<CollectionModel>());
 
@@ -146,7 +158,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok(template);
 		}
 
-		[HttpDelete("collection/{collectionSlug}/templates/{templateSlug}")]
+		[HttpDelete("{collectionSlug}/templates/{templateSlug}")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("collection/delete-template", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
@@ -166,12 +178,82 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok();
 		}
 
+		[HttpPut("{collectionSlug}/default-template")]
+		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[Permission("collection/modify", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> SetDefaultTemplateAsync(string collectionSlug, [FromForm][FromBody]string templateSlug)
+		{
+			var collections = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+			var filter = Builders<CollectionModel>.Filter.Where(x => x.Slug == collectionSlug && x.Templates.Any(x => x.Slug == templateSlug));
+			var collectionModel = await collections.FindOneAndUpdateAsync(filter, Builders<CollectionModel>.Update.Set(x => x.DefaultTemplate, templateSlug));
+			return Ok(_mapper.Map<ApiCollection>(collectionModel));
+		}
+
+		[HttpPut("{collectionSlug}")]
+		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[Permission("collection/modify", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> UpdateCollectionAsync(string collectionSlug, [FromBody][FromForm] ApiCollection collection)
+		{
+			var collections = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+			var filter = Builders<CollectionModel>.Filter.Where(x => x.Slug == collectionSlug && x.IsInbuilt == false);
+			var collectionModel = await collections.FindOneAndUpdateAsync(filter, collection.ToUpdate(), GetReturnUpdatedOptions<CollectionModel>());
+			if (collectionModel == null)
+				return NotFound("Collection not found");
+			
+			_templateStore.NotifyTemplateChanged(ModifyMode.Modify, collectionSlug);
+			return Ok(collection);
+		}
+
+		[HttpGet]
+		[ProducesResponseType<ApiCollection[]>(StatusCodes.Status200OK)]
+		[Permission("collections/list", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> GetCollectionAsync()
+		{
+			var collections = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => true).ToListAsync();	
+			return Ok(_mapper.Map<ApiCollection[]>(collections));
+		}
+
+		[HttpPost("paginate")]
+		[ProducesResponseType<CursorResult<ApiCollection[], ObjectId?>>(StatusCodes.Status200OK)]
+		[Permission("collections/list", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public Task<IActionResult> PaginateCollectionFormAsync([FromForm] ObjectId? cursor, [FromForm][Range(1, 50)] int limit = 20)
+		{
+			return PaginateCollectionAsync(cursor, limit);
+		}
+			
+
+		[HttpGet("paginate")]
+		[ProducesResponseType<CursorResult<ApiCollection[], ObjectId?>>(StatusCodes.Status200OK)]
+		[Permission("collections/list")]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> PaginateCollectionAsync([FromQuery]ObjectId? cursor, [FromQuery][Range(1, 50)]int limit = 20)
+		{
+			var collections = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
+				.Find(x => cursor.HasValue == false || x.Id > cursor)
+				.Limit(limit)
+				.ToListAsync();
+
+			ObjectId? next = collections.Count == limit ? collections.Last().Id : null;
+			return Ok(CursorResult.Create(next, _mapper.Map<ApiCollection[]>(collections)));
+		}
 
 		[HttpPost]
 		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
-		[Permission("collection/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		[Permission("collections/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
 		public async Task<IActionResult> CreateCollectionAsync([FromBody][FromForm] ApiCollection collection)
 		{
 			var dbCollection = _db.GetCollection<object>(collection.Slug);
