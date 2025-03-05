@@ -1,13 +1,17 @@
 ﻿using MongoDB.Bson;
 using AwosFramework.Generators.MongoDBUpdateGenerator;
 using MongoDBSemesterProjekt.Models;
+using AutoMapper;
 
 namespace MongoDBSemesterProjekt.ApiModels
 {
+	[AutoMap(typeof(UserModel))]
 	[MongoDBUpdate(typeof(UserModel), MethodName = "ToUserUpdate")]
 	[MongoDBUpdate(typeof(UserModel), MethodName = "ToAdminUpdate")]
 	public class ApiUser
 	{
+		public ObjectId Id { get; set; }
+
 		[UpdateProperty(ApplyToAllMethods = true)]
 		public string Username { get; set; }
 

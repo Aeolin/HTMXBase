@@ -1,7 +1,7 @@
 ﻿using AwosFramework.Generators.MongoDBUpdateGenerator;
 using MongoDBSemesterProjekt.Models;
 
-namespace MongoDBSemesterProjekt.ApiModels
+namespace MongoDBSemesterProjekt.ApiModels.Requests
 {
 	[MongoDBUpdate(typeof(UserModel), MethodName = "ToUserAddGroup")]
 	[MongoDBUpdate(typeof(UserModel), MethodName = "ToUserRemoveGroup")]

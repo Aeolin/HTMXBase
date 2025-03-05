@@ -1,7 +1,7 @@
 ﻿using MongoDBSemesterProjekt.Models;
 using AwosFramework.Generators.MongoDBUpdateGenerator;
 
-namespace MongoDBSemesterProjekt.ApiModels
+namespace MongoDBSemesterProjekt.ApiModels.Requests
 {
 
 	[MongoDBUpdate(typeof(GroupModel), MethodName = "ToGroupAddPermission")]

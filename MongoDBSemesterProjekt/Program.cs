@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.OutputFormatters;
 using MongoDBSemesterProjekt.Services.FileStorage;
@@ -14,6 +16,7 @@ using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ObjectCache;
 using MongoDBSemesterProjekt.Utils;
 using System.Collections.Frozen;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
@@ -30,6 +33,7 @@ builder.Services.AddSingleton<IHandlebars>(HandlebarsEx.Create(cfg =>
 
 
 builder.Services.AddSingleton<PasswordHasher<UserModel>>();
+builder.Services.AddAutoMapper(opts => opts.AddMaps(typeof(Program).Assembly));
 builder.Services.AddControllers(opts =>
 {
 	opts.OutputFormatters.Add(new HtmxOutputFormatter());
@@ -48,11 +52,20 @@ builder.Services.AddScoped<IMongoDatabase>(x =>
 	return client.GetDatabase(url.DatabaseName);
 });
 
+builder.Services.AddScoped<IMongoDatabaseSession>(x =>
+{
+	var client = x.GetRequiredService<IMongoClient>();
+	var config = x.GetRequiredService<IConfiguration>();
+	var url = new MongoUrl(config.GetConnectionString("MongoDB"));
+	return new MongoDatabaseSession(client, url.DatabaseName);
+});
+
 builder.Services.Configure<InMemoryCacheConfig>(x =>
 {
 	x.MaxRetentionTime = TimeSpan.FromMinutes(5);
 	x.RefreshOnRead = true;
 });
+
 builder.Services.AddSingleton<IInMemoryCache<string, HandlebarsTemplate<object, object>>, InMemoryCache<string, HandlebarsTemplate<object, object>>>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddEndpointsApiExplorer();
@@ -89,61 +102,66 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+BsonSerializer.RegisterSerializer(new JsonDocumentSerializer(BsonType.String));
+
 using (var scope = app.Services.CreateScope())
 {
-	var db = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
-	var collections = await db.ListCollections().ToListAsync();
-	var collectionNames = collections.Select(x => x["name"]).ToFrozenSet();
-
-
-	if (collectionNames.Contains(UserModel.CollectionName) == false)
+	var session = scope.ServiceProvider.GetRequiredService<IMongoDatabaseSession>();
+	session.StartTransaction();
+	try
 	{
-		var userCollection = db.GetCollection<UserModel>(UserModel.CollectionName);
-		await userCollection.Indexes.CreateOneAsync(new CreateIndexModel<UserModel>(Builders<UserModel>.IndexKeys.Ascending(x => x.Email), new CreateIndexOptions { Unique = true }));
-		await userCollection.Indexes.CreateOneAsync(new CreateIndexModel<UserModel>(Builders<UserModel>.IndexKeys.Ascending(x => x.Username), new CreateIndexOptions { Unique = true }));
-		
-		
-		var groupCollection = db.GetCollection<GroupModel>(GroupModel.CollectionName);
-		await groupCollection.Indexes.CreateOneAsync(new CreateIndexModel<GroupModel>(Builders<GroupModel>.IndexKeys.Ascending(x => x.Slug), new CreateIndexOptions { Unique = true }));
+		var db = session.Db;
+		var collections = await db.ListCollections().ToListAsync();
+		var collectionNames = collections.Select(x => x["name"]).ToFrozenSet();
 
-		var collectionCollection = db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
-		await collectionCollection.Indexes.CreateOneAsync(new CreateIndexModel<CollectionModel>(Builders<CollectionModel>.IndexKeys.Ascending(x => x.Slug), new CreateIndexOptions { Unique = true }));
-		await collectionCollection.Indexes.CreateOneAsync(new CreateIndexModel<CollectionModel>(Builders<CollectionModel>.IndexKeys.Ascending(x => x.Templates[-1].Slug), new CreateIndexOptions { Unique = true }));
-
-		var userSchema = collections.FirstOrDefault(x => x["name"] == UserModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
-		var userCollectionModel = new CollectionModel
+		var uniqueIndexOptions = new CreateIndexOptions { Unique = true };
+		if (collectionNames.Any() == false)
 		{
-			CacheRetentionTime = null,
-			Slug = UserModel.CollectionName,
-			Schema = JsonDocument.Parse(userSchema.ToJson()),
-			Name = "Users",
-			IsInbuilt = true
-		};
+			await db.CreateCollectionWithSchemaAsync<CollectionModel>(CollectionModel.CollectionName);
+			await db.CreateCollectionWithSchemaAsync<UserModel>(UserModel.CollectionName);
+			await db.CreateCollectionWithSchemaAsync<GroupModel>(GroupModel.CollectionName);
 
-		await collectionCollection.InsertOneAsync(userCollectionModel);
+			var userCollection = db.GetCollection<UserModel>(UserModel.CollectionName);
+			await userCollection.CreateUniqueKeyAsync(x => x.Email);
+			await userCollection.CreateUniqueKeyAsync(x => x.Username);
 
-		var groupSchema = collections.FirstOrDefault(x => x["name"] == GroupModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
-		var groupCollectionModel = new CollectionModel
-		{
-			CacheRetentionTime = null,
-			Slug = GroupModel.CollectionName,
-			Schema = JsonDocument.Parse(groupSchema.ToJson()),
-			Name = "Groups",
-			IsInbuilt = true
-		};
+			var groupCollection = db.GetCollection<GroupModel>(GroupModel.CollectionName);
+			await groupCollection.CreateUniqueKeyAsync(x => x.Slug);
 
-		await collectionCollection.InsertOneAsync(groupCollectionModel);
+			var collectionCollection = db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+			await collectionCollection.CreateUniqueKeyAsync(x => x.Slug);
+			await collectionCollection.CreateUniqueKeyAsync(x => x.Templates.Select(y => y.Slug));
+
+			var userSchema = collections.FirstOrDefault(x => x["name"] == UserModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
+			var userCollectionModel = new CollectionModel
+			{
+				CacheRetentionTime = null,
+				Slug = UserModel.CollectionName,
+				Schema = JsonDocument.Parse(userSchema.ToJson()),
+				Name = "Users",
+				IsInbuilt = true
+			};
+
+			await collectionCollection.InsertOneAsync(userCollectionModel);
+
+			var groupSchema = collections.FirstOrDefault(x => x["name"] == GroupModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
+			var groupCollectionModel = new CollectionModel
+			{
+				CacheRetentionTime = null,
+				Slug = GroupModel.CollectionName,
+				Schema = JsonDocument.Parse(groupSchema.ToJson()),
+				Name = "Groups",
+				IsInbuilt = true
+			};
+
+			await collectionCollection.InsertOneAsync(groupCollectionModel);
+			await session.CommitAsync();
+		}
+
 	}
-
-	if (collectionNames.Contains(GroupModel.CollectionName) == false)
+	catch (Exception ex)
 	{
-		var groupCollection = db.GetCollection<GroupModel>(GroupModel.CollectionName);
-	}
-
-	if (collectionNames.Contains(CollectionModel.CollectionName) == false)
-	{
-		var collectionsCollection = db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
-		await collectionsCollection.Indexes.CreateOneAsync(new CreateIndexModel<CollectionModel>(Builders<CollectionModel>.IndexKeys.Ascending(x => x.Slug), new CreateIndexOptions { Unique = true }));
+		await session.AbortAsync();
 	}
 }
 // Configure the HTTP request pipeline.

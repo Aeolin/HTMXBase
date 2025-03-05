@@ -9,6 +9,7 @@ using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.Utils;
 using System.ComponentModel.DataAnnotations;
 using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
+using MongoDBSemesterProjekt.ApiModels.Requests;
 
 namespace MongoDBSemesterProjekt.Controllers
 {

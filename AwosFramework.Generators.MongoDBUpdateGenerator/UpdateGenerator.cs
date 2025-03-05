@@ -70,7 +70,6 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			method.Properties = newProperties.ToArray();
 		}
 
-		private static readonly Regex ARRAY_PATTERN = new Regex(@"^([^\s\[\]]+)(\[(-?\d+)\])?$");
 
 		private static void ResolveNestedProperties(ImmutableDictionary<string, TargetClassModel> classes, UpdateMethod method, List<Diagnostic> diagnostics)
 		{
@@ -82,20 +81,12 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 					return;
 				}
 
-
 				var path = method.NestedProperty.Split('.');
 				TargetClassModel current = targetClass;
 				foreach(var part in path)
 				{
-					var match = ARRAY_PATTERN.Match(part);
-					if(match.Success == false)
-					{
-						diagnostics.Add(Diagnostic.Create(Constants.InvalidNestedProperty, method.SourceLocation, part, current.FullName));
-						return;
-					}
-					
-					var propertyName = match.Groups[1].Value;
-					var isArray = match.Groups[3].Success;
+					var isArray = part.EndsWith("[$]");
+					var propertyName = isArray ? part.Substring(0, part.Length - 3) : part;
 
 					if (current.Properties.TryGetValue(propertyName, out var nestedProperty) == false)
 					{
@@ -116,6 +107,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 					}
 				}
 
+				method.NestedProperty = method.NestedProperty.Replace("[$]", ".FirstMatchingElement()");
 				method.NestedTargetClassName = current.FullName;
 			}
 		}
@@ -302,6 +294,8 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				using System;
 				using System.Collections.Generic;
 				using MongoDB.Driver;	
+				using MongoDB.Driver.Linq;	
+				
 
 				namespace {{apiModel.SourceClassNameSpace}}
 				{
@@ -325,6 +319,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				using System;
 				using System.Collections.Generic;
 				using MongoDB.Driver;	
+				using MongoDB.Driver.Linq;
 
 				namespace {{Constants.ExtensionsNameSpace}}
 				{

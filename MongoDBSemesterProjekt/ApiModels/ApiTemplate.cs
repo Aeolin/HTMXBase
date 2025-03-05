@@ -1,9 +1,11 @@
-﻿using AwosFramework.Generators.MongoDBUpdateGenerator;
+﻿using AutoMapper;
+using AwosFramework.Generators.MongoDBUpdateGenerator;
 using MongoDBSemesterProjekt.Models;
 
 namespace MongoDBSemesterProjekt.ApiModels
 {
-	[MongoDBUpdate(typeof(CollectionModel), NestedProperty="Templates[-1]", IgnoreUnmarkedProperties = true)]
+	[AutoMap(typeof(TemplateModel))]
+	[MongoDBUpdate(typeof(CollectionModel), NestedProperty="Templates[$]", IgnoreUnmarkedProperties = true)]
 	public class ApiTemplate
 	{
 		public  string Slug { get; set; }

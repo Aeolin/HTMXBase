@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDBSemesterProjekt.ApiModels;
+using MongoDBSemesterProjekt.ApiModels.Requests;
 using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Utils;

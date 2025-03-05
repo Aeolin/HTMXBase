@@ -1,7 +1,10 @@
-﻿using System.Text.Json;
+﻿using AutoMapper;
+using MongoDBSemesterProjekt.Models;
+using System.Text.Json;
 
 namespace MongoDBSemesterProjekt.ApiModels
 {
+	[AutoMap(typeof(CollectionModel))]
 	public class ApiCollection
 	{
 		public string Slug { get; set; }

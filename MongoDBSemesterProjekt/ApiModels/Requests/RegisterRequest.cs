@@ -1,4 +1,4 @@
-﻿namespace MongoDBSemesterProjekt.ApiModels
+﻿namespace MongoDBSemesterProjekt.ApiModels.Requests
 {
 	public class RegisterRequest
 	{

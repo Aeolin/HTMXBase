@@ -1,9 +1,20 @@
 ﻿using HandlebarsDotNet;
+using HandlebarsDotNet.Helpers;
 using MongoDB.Bson;
+using MongoDB.Bson.IO;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
+using System.Collections;
 using System.Collections.Frozen;
+using System.ComponentModel.DataAnnotations;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace MongoDBSemesterProjekt.Utils
 {
@@ -14,6 +25,40 @@ namespace MongoDBSemesterProjekt.Utils
 			foreach (var item in items)
 				collection.Add(item);
 		}
+
+		public static void IfAttribute<T>(this MemberInfo type, Action<T> attributeAction) where T : Attribute
+		{
+			var attributes = type.GetCustomAttributes<T>();
+			foreach (var attribute in attributes)
+				attributeAction(attribute);
+		}
+
+		public static string ToCamelCase(this string @string) => @string.Length > 1 ? char.ToLower(@string[0]) + @string[1..] : @string?.ToLower();
+
+	
+
+		public static async Task CreateCollectionWithSchemaAsync<T>(this IMongoDatabase database, string name)
+		{
+			var schema = new BsonDocument();
+			using var writer = new BsonDocumentWriter(schema);
+			BsonSchemaGenerator.WriteValidator<T>(writer);
+
+			var creationOptions = new CreateCollectionOptions<T>
+			{
+				Validator = schema
+			};
+
+			await database.CreateCollectionAsync(name, creationOptions);
+		}
+
+		private static readonly CreateIndexOptions UniqueIndexOptions = new CreateIndexOptions { Unique = true };
+		public static async Task CreateUniqueKeyAsync<T>(this IMongoCollection<T> collection, Expression<Func<T, object>> selector, bool ascending = true)
+		{
+			var keys = ascending ? Builders<T>.IndexKeys.Ascending(selector) : Builders<T>.IndexKeys.Descending(selector);
+			var model = new CreateIndexModel<T>(keys, UniqueIndexOptions);
+			await collection.Indexes.CreateOneAsync(model);
+		}
+
 		public static UpdateDefinition<MongoDBSemesterProjekt.Models.CollectionModel> ToAddTemplate(this MongoDBSemesterProjekt.ApiModels.ApiTemplate apiModel)
 		{
 			var builder = Builders<MongoDBSemesterProjekt.Models.CollectionModel>.Update;
@@ -34,12 +79,12 @@ namespace MongoDBSemesterProjekt.Utils
 
 		public static V GetOrAdd<K, V>(this Dictionary<K, V> dict, K key, Func<V> value)
 		{
-			if(dict.TryGetValue(key, out var result) == false)
+			if (dict.TryGetValue(key, out var result) == false)
 			{
 				result = value();
 				dict.Add(key, result);
 			}
-			
+
 			return result;
 		}
 
