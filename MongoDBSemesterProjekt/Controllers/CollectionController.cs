@@ -4,13 +4,15 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.ApiModels;
 using MongoDBSemesterProjekt.Authorization;
-using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.Utils;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDB.Driver.Linq;
+using MongoDBSemesterProjekt.Database.Models;
+using MongoDBSemesterProjekt.Api.Models;
+using MongoDBSemesterProjekt.DataBinders.JsonOrForm;
 
 namespace MongoDBSemesterProjekt.Controllers
 {

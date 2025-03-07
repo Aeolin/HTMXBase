@@ -6,9 +6,11 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.BsonSchema;
+using MongoDBSemesterProjekt.Database.Models;
 using System.Collections;
 using System.Collections.Frozen;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -34,42 +36,40 @@ namespace MongoDBSemesterProjekt.Utils
 				attributeAction(attribute);
 		}
 
-		public static string ToCamelCase(this string @string) => @string.Length > 1 ? char.ToLower(@string[0]) + @string[1..] : @string?.ToLower();
-
-	
-
-		public static async Task CreateCollectionWithSchemaAsync<T>(this IMongoDatabase database, string name)
+		public static bool TryGetStaticValue<T>(this Type type, string name, [MaybeNullWhen(false)][NotNullWhen(true)] out T value)
 		{
-			var schema = new BsonDocument();
-			using var writer = new BsonDocumentWriter(schema);
-			BsonSchemaGenerator.WriteValidator<T>(writer);
-
-			var creationOptions = new CreateCollectionOptions<T>
+			var member = type.GetMember(name, BindingFlags.Public | BindingFlags.Static).FirstOrDefault();
+			if (member == null)
 			{
-				Validator = schema
+				value = default;
+				return false;
+			}
+
+			var (result, propertyFound) = member switch
+			{
+				PropertyInfo properterty => (properterty.GetValue(null), true),
+				FieldInfo field => (field.GetValue(null), true),
+				_ => (default, false)
 			};
 
-			await database.CreateCollectionAsync(name, creationOptions);
+			if(propertyFound && result is T tResult)
+			{
+				value = tResult;
+				return true;
+			}
+
+			value = default;
+			return false;
 		}
 
-		private static readonly CreateIndexOptions UniqueIndexOptions = new CreateIndexOptions { Unique = true };
-		public static async Task CreateUniqueKeyAsync<T>(this IMongoCollection<T> collection, Expression<Func<T, object>> selector, bool ascending = true)
-		{
-			var keys = ascending ? Builders<T>.IndexKeys.Ascending(selector) : Builders<T>.IndexKeys.Descending(selector);
-			var model = new CreateIndexModel<T>(keys, UniqueIndexOptions);
-			await collection.Indexes.CreateOneAsync(model);
-		}
+		[return: NotNullIfNotNull(nameof(@string))]
+		public static string? ToCamelCase(this string @string) => @string == null ? null : (@string.Length > 1 ? char.ToLower(@string[0]) + @string[1..] : @string.ToLower());
+		
+		[return: NotNullIfNotNull(nameof(@string))]
+		public static string? ToPascalCase(this string @string) => @string == null ? null : (@string.Length > 1 ? char.ToUpper(@string[0]) + @string[1..] : @string.ToUpper());
 
-		public static UpdateDefinition<MongoDBSemesterProjekt.Models.CollectionModel> ToAddTemplate(this MongoDBSemesterProjekt.ApiModels.ApiTemplate apiModel)
-		{
-			var builder = Builders<MongoDBSemesterProjekt.Models.CollectionModel>.Update;
-			var list = new List<UpdateDefinition<MongoDBSemesterProjekt.Models.CollectionModel>>(1);
-
-			//if (apiModel != null)
-			//	list.Add(builder.Push(x => x.Templates));
-
-			return builder.Combine(list);
-		}
+		public static bool IsAssignableTo<T>(this Type type) => type.IsAssignableTo(typeof(T));
+		public static bool IsNot<T>(this Type type) => type != typeof(T);
 
 		public static string UrlEncode(this string @string) => System.Web.HttpUtility.UrlEncode(@string);
 

@@ -1,6 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDBSemesterProjekt.Models;
+using MongoDBSemesterProjekt.Database.Models;
 
 namespace MongoDBSemesterProjekt.Services.TemplateRouter
 {

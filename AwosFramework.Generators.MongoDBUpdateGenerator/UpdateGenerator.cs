@@ -216,7 +216,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				var listAdd = $"{listName}.Add(builder.{setName}(x => x.{targetPropertyAccess}, {sourcePropertyAccess}));";
 				return ifLine == null ? listAdd : $"{ifLine}\n\t{listAdd}";
 			}
-			else if (property.UseStringEmpty)
+			else if (property.UseStringEmpty && property.IgnoreNull)
 			{
 				return
 				$$"""

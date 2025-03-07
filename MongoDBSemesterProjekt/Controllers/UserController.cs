@@ -2,11 +2,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
-using MongoDBSemesterProjekt.ApiModels;
 using MongoDBSemesterProjekt.Authorization;
-using MongoDBSemesterProjekt.Models;
 using MongoDBSemesterProjekt.Utils;
 using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
+using MongoDBSemesterProjekt.Database.Models;
+using MongoDBSemesterProjekt.Api.Models;
+using MongoDBSemesterProjekt.DataBinders.JsonOrForm;
 
 namespace MongoDBSemesterProjekt.Controllers
 {

@@ -1,5 +1,5 @@
 ﻿using MongoDB.Driver;
-using MongoDBSemesterProjekt.Models;
+using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Utils;
 using System.Security.Claims;
 

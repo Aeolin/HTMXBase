@@ -12,15 +12,19 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
-using MongoDBSemesterProjekt.ApiModels;
+using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.Authorization;
-using MongoDBSemesterProjekt.Models;
+using MongoDBSemesterProjekt.Database;
+using MongoDBSemesterProjekt.Database.Models;
+using MongoDBSemesterProjekt.Database.Session;
 using MongoDBSemesterProjekt.OutputFormatters;
+using MongoDBSemesterProjekt.Serializers;
 using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ObjectCache;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
+using MongoDBSemesterProjekt.Utils.StartupTasks;
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Text;
@@ -117,107 +121,14 @@ builder.Services.AddAutoMapper(opts => {
 	opts.CreateMap<CollectionModel, ApiCollection>(MemberList.Destination);
 });
 
-
+builder.Services.UseAsyncSeeding(Seeding.CreateCollectionsAsync);
+builder.Services.UseAsyncSeeding(Seeding.UpdatePermissionsAsync);
 
 var app = builder.Build();
 
 BsonSerializer.RegisterSerializer(new JsonDocumentSerializer(BsonType.String));
 
 
-using (var scope = app.Services.CreateScope())
-{
-	var session = scope.ServiceProvider.GetRequiredService<IMongoDatabaseSession>();
-	session.StartTransaction();
-	try
-	{
-		var db = session.Db;
-		var collections = await db.ListCollections().ToListAsync();
-		var collectionNames = collections.Select(x => x["name"]).ToFrozenSet();
-
-		var uniqueIndexOptions = new CreateIndexOptions { Unique = true };
-		if (collectionNames.Any() == false)
-		{
-			await db.CreateCollectionWithSchemaAsync<CollectionModel>(CollectionModel.CollectionName);
-			await db.CreateCollectionWithSchemaAsync<UserModel>(UserModel.CollectionName);
-			await db.CreateCollectionWithSchemaAsync<GroupModel>(GroupModel.CollectionName);
-
-			var userCollection = db.GetCollection<UserModel>(UserModel.CollectionName);
-			await userCollection.CreateUniqueKeyAsync(x => x.Email);
-			await userCollection.CreateUniqueKeyAsync(x => x.Username);
-
-			var groupCollection = db.GetCollection<GroupModel>(GroupModel.CollectionName);
-			await groupCollection.CreateUniqueKeyAsync(x => x.Slug);
-
-			var collectionCollection = db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
-			await collectionCollection.CreateUniqueKeyAsync(x => x.Slug);
-
-			collections = await db.ListCollections().ToListAsync();
-			var userSchema = collections.FirstOrDefault(x => x["name"] == UserModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
-			var userCollectionModel = new CollectionModel
-			{
-				CacheRetentionTime = null,
-				Slug = UserModel.CollectionName,
-				Schema = JsonDocument.Parse(userSchema.ToJson()),
-				Name = "Users",
-				IsInbuilt = true
-			};
-
-			await collectionCollection.InsertOneAsync(userCollectionModel);
-
-			var groupSchema = collections.FirstOrDefault(x => x["name"] == GroupModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
-			var groupCollectionModel = new CollectionModel
-			{
-				CacheRetentionTime = null,
-				Slug = GroupModel.CollectionName,
-				Schema = JsonDocument.Parse(groupSchema.ToJson()),
-				Name = "Groups",
-				IsInbuilt = true
-			};
-
-			await collectionCollection.InsertOneAsync(groupCollectionModel);
-
-			var collectionSchema = collections.FirstOrDefault(x => x["name"] == CollectionModel.CollectionName)?["options"]?["validator"]?["$jsonSchema"];
-			var collectionCollectionModel = new CollectionModel
-			{
-				CacheRetentionTime = null,
-				Slug = CollectionModel.CollectionName,
-				Schema = JsonDocument.Parse(collectionSchema.ToJson()),
-				Name = "Collections",
-				IsInbuilt = true
-			};
-
-			await collectionCollection.InsertOneAsync(collectionCollectionModel);
-
-			var permissionAttributes = typeof(Program).Assembly.GetTypes()
-				.SelectMany(x => x.GetMethods())
-				.SelectMany(x => x.GetCustomAttributes<PermissionAttribute>())
-				.SelectMany(x => x.Groups.Select(y => new { Permission = x.Permission, Group = y }))
-				.GroupBy(x => x.Group);
-
-			List<GroupModel> groups = new();
-			foreach (var permission in permissionAttributes)
-			{
-				groups.Add(
-					new GroupModel
-					{
-						Name = permission.Key,
-						Slug = permission.Key.ToLower(),
-						Permissions = permission.Select(x => x.Permission).Distinct().ToList(),
-						Description = $"Autogenrated group {permission.Key}"
-					}
-				);
-			}
-
-			await groupCollection.InsertManyAsync(groups);
-			await session.CommitAsync();
-		}
-
-	}
-	catch (Exception ex)
-	{
-		await session.AbortAsync();
-	}
-}
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

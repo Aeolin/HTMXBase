@@ -1,7 +1,7 @@
 ﻿using HandlebarsDotNet;
 using Microsoft.VisualBasic;
 using MongoDB.Driver;
-using MongoDBSemesterProjekt.Models;
+using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Services.ObjectCache;
 using MongoDBSemesterProjekt.Utils;
 using System.Collections.Frozen;

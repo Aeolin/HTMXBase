@@ -1,4 +1,4 @@
-﻿using MongoDBSemesterProjekt.Models;
+﻿using MongoDBSemesterProjekt.Database.Models;
 using System.Security.Claims;
 
 namespace MongoDBSemesterProjekt.Services.JWTAuth

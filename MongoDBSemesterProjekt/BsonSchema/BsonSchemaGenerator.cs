@@ -201,7 +201,7 @@ namespace MongoDBSemesterProjekt.BsonSchema
 						throw new NotSupportedException($"Unsupported enum representation: {bsonType}");
 				}
 
-				writer.WriteEndDocument();
+				writer.WriteEndArray();
 			}
 		}
 
