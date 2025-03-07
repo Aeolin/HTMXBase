@@ -15,6 +15,7 @@ using MongoDB.Driver.Linq;
 using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.Authorization;
 using MongoDBSemesterProjekt.Database;
+using MongoDBSemesterProjekt.Database.InterceptingShim;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Database.Session;
 using MongoDBSemesterProjekt.OutputFormatters;
@@ -42,18 +43,17 @@ builder.Services.AddSingleton<IHandlebars>(HandlebarsEx.Create(cfg =>
 }));
 
 
-builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>(); 
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddSingleton<PasswordHasher<UserModel>>();
 
 builder.Services.AddControllers(opts =>
 {
 	opts.OutputFormatters.Add(new HtmxOutputFormatter());
-	
+
 }).AddJsonOptions(x =>
 {
 	x.JsonSerializerOptions.Converters.Add(new ObjectIdConverter());
 });
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 
 builder.Services.Configure<FlatFileStorageConfig>(config.GetSection("FlatFileStorage"));
 builder.Services.AddScoped<IFileStorage, FlatFileStorage>();
@@ -64,7 +64,7 @@ builder.Services.AddScoped<IMongoDatabase>(x =>
 	var client = x.GetRequiredService<IMongoClient>();
 	var config = x.GetRequiredService<IConfiguration>();
 	var url = new MongoUrl(config.GetConnectionString("MongoDB"));
-	return client.GetDatabase(url.DatabaseName);
+	return new InterceptingDatabaseShim(client.GetDatabase(url.DatabaseName), x);
 });
 
 builder.Services.AddScoped<IMongoDatabaseSession>(x =>
@@ -72,9 +72,10 @@ builder.Services.AddScoped<IMongoDatabaseSession>(x =>
 	var client = x.GetRequiredService<IMongoClient>();
 	var config = x.GetRequiredService<IConfiguration>();
 	var url = new MongoUrl(config.GetConnectionString("MongoDB"));
-	return new MongoDatabaseSession(client, url.DatabaseName);
+	return new MongoDatabaseSession(client, x, url.DatabaseName);
 });
 
+builder.Services.AddEntityUpdateInterceptors();
 builder.Services.Configure<InMemoryCacheConfig>(x =>
 {
 	x.MaxRetentionTime = TimeSpan.FromMinutes(5);
@@ -116,7 +117,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddAutoMapper(opts => {
+builder.Services.AddAutoMapper(opts =>
+{
 	opts.AddMaps(Assembly.GetExecutingAssembly());
 	opts.CreateMap<CollectionModel, ApiCollection>(MemberList.Destination);
 });

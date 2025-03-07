@@ -6,6 +6,7 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.BsonSchema;
+using MongoDBSemesterProjekt.Database.InterceptingShim;
 using MongoDBSemesterProjekt.Database.Models;
 using System.Collections;
 using System.Collections.Frozen;
@@ -87,6 +88,18 @@ namespace MongoDBSemesterProjekt.Utils
 			}
 
 			return result;
+		}
+
+		public static IServiceCollection AddEntityUpdateInterceptors(this IServiceCollection services)
+		{
+			var entityTypes = Assembly.GetExecutingAssembly().GetTypes().Where(x => x.IsAssignableTo<EntityBase>() && x.IsAbstract == false).ToArray();
+			foreach (var entityType in entityTypes)
+			{
+				var interceptor = typeof(EntityBaseUpdatingInterceptionFactory).GetMethod(nameof(EntityBaseUpdatingInterceptionFactory.Create)).MakeGenericMethod(entityType).Invoke(null, null);
+				services.AddSingleton(typeof(IInterceptionEvents<>).MakeGenericType(entityType), interceptor);
+			}
+
+			return services;
 		}
 
 		public static void ForEach<T>(this IEnumerable<T> collection, Action<T> action)

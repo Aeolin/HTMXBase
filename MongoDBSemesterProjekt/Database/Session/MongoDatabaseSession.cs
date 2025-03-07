@@ -1,4 +1,5 @@
 ﻿using MongoDB.Driver;
+using MongoDBSemesterProjekt.Database.InterceptingShim;
 
 namespace MongoDBSemesterProjekt.Database.Session
 {
@@ -10,11 +11,11 @@ namespace MongoDBSemesterProjekt.Database.Session
 
 		public IMongoDatabase Database => _database;
 
-		public MongoDatabaseSession(IMongoClient client, string dbName)
+		public MongoDatabaseSession(IMongoClient client, IServiceProvider provider, string dbName)
 		{
 			_client = client;
 			_session = client.StartSession();
-			_database = client.GetDatabase(dbName);
+			_database = new InterceptingDatabaseShim(client.GetDatabase(dbName), provider);
 		}
 
 		public void StartTransaction()
