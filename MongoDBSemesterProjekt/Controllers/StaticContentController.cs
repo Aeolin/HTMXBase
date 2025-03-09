@@ -47,7 +47,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				Length = file.Length,
 				MimeType = file.ContentType,
 				Name = file.Name,
-				Path = path,
+				StorageId = path,
 				VirtualPath = virtualPath,
 				Slug = slug,
 				DeletePermission = deletePermission,
@@ -75,51 +75,8 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (result == null)
 				return NotFound();
 
-			await _fileStore.DeleteFileAsync(result.Path);
+			await _fileStore.DeleteFileAsync(result.StorageId);
 			return Ok();
-		}
-
-		[AllowAnonymous]
-		[HttpGet("{**path}")]
-		[ProducesResponseType(StatusCodes.Status200OK)]
-		[ProducesResponseType(StatusCodes.Status404NotFound)]
-		[ProducesResponseType(StatusCodes.Status403Forbidden)]
-		[ProducesResponseType(StatusCodes.Status500InternalServerError)]
-		public async Task<IActionResult> GetFileContentAsync(string path)
-		{
-			var collection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
-			var lastSlash = path.LastIndexOf('/');
-			var slug = path.Substring(lastSlash + 1);
-			var virtualPath = lastSlash == -1 ? null : path.Substring(0, lastSlash);
-
-			StaticContentModel model = null;
-			if (User == null)
-			{
-				var files = await collection.FindAsync(x => x.Slug == slug && x.VirtualPath == virtualPath);
-				model = await files.FirstOrDefaultAsync();	
-			}
-			else
-			{
-				var owner = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-				if (ObjectId.TryParse(owner, out var ownerId) == false)
-					return StatusCode(StatusCodes.Status500InternalServerError, "Expected id to be ObjectId");
-
-				var permissions = User.FindAll(Constants.PERMISSION_CLAIM).Select(x => x.Value).ToArray();
-				var result = await collection.FindAsync(
-					x => x.Slug == slug &&
-					x.VirtualPath == virtualPath &&
-					(x.OwnerId == ownerId || x.ReadPermission == null || permissions.Contains(x.ReadPermission)) 
-				);
-			}
-
-			if (model == null)
-				return NotFound();
-
-			var stream = await _fileStore.GetBlobAsync(model.Path);
-			if (stream == null)
-				return NotFound();
-
-			return File(stream, model.MimeType, model.Name);
 		}
 	}
 }

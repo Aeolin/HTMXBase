@@ -2,7 +2,7 @@
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
-	[Index(nameof(Slug), nameof(Path), IsUnique = true)]
+	[Index(nameof(Slug), nameof(StorageId), IndexType = IndexType.Hashed, IsUnique = true)]
 	public class StaticContentModel : EntityBase
 	{
 		public const string CollectionName = "static-content";
@@ -12,7 +12,7 @@ namespace MongoDBSemesterProjekt.Database.Models
 		public required long Length { get; set; }
 		public required string Slug { get; set; }
 		public string? VirtualPath { get; set; }
-		public required string Path { get; set; }
+		public required string StorageId { get; set; }
 		public string? ReadPermission { get; set; }
 		public string? DeletePermission { get; set; }
 	}

@@ -2,6 +2,6 @@
 {
 	public interface ITemplateRouter
 	{
-		public bool TryRoute(Uri route, out RouteMatch match);
+		public bool TryRoute(HttpContext context, out RouteMatch match);
 	}
 }

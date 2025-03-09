@@ -8,5 +8,7 @@
 		NotContains,
 		LargerThan,
 		SmallerThan,
+		LargerOrEqual,
+		SmallerOrEqual,
 	}
 }
