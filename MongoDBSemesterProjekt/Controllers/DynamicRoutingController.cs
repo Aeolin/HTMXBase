@@ -105,7 +105,7 @@ namespace MongoDBSemesterProjekt.Controllers
 
 				var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 				var collectionMeta = await collectionCollection
-					.Find(x => x.Id == routeMatch.CollectionId &&
+					.Find(x => x.Slug == routeMatch.CollectionSlug &&
 					(x.QueryPermission == null ||
 					(permissions != null && permissions.Contains(x.QueryPermission))))
 					.FirstOrDefaultAsync(HttpContext.RequestAborted);
@@ -113,7 +113,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				if (collectionMeta == null)
 					return NotFound();
 
-				var template = await _templateStore.GetTemplateAsync(collectionMeta.Slug, routeMatch.TemplateSlug);
+				var template = await _templateStore.GetTemplateAsync(collectionMeta.Slug, routeMatch.TemplateSlug ?? collectionMeta.DefaultTemplate);
 				if (template == null)
 					return NotFound();
 

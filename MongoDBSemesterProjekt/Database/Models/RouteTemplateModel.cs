@@ -7,8 +7,8 @@ namespace MongoDBSemesterProjekt.Database.Models
 		public const string CollectionName = "route-templates";
 
 		public required string UrlTemplate { get; set; }
-		public ObjectId? CollectionId { get; set; }
-		public string? TemplateId { get; set; }
+		public string? CollectionSlug { get; set; }
+		public string? TemplateSlug { get; set; }
 		public bool Paginate { get; set; }
 		public FieldMatchModel[]? Fields { get; set; }
 	}

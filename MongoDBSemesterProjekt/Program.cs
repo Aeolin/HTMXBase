@@ -23,6 +23,7 @@ using MongoDBSemesterProjekt.Serializers;
 using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ObjectCache;
+using MongoDBSemesterProjekt.Services.TemplateRouter;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
 using MongoDBSemesterProjekt.Utils.StartupTasks;
@@ -59,6 +60,7 @@ builder.Services.Configure<FlatFileStorageConfig>(config.GetSection("FlatFileSto
 builder.Services.AddScoped<IFileStorage, FlatFileStorage>();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMongoClient>(x => new MongoClient(x.GetRequiredService<IConfiguration>().GetConnectionString("MongoDB")));
+builder.Services.AddSingleton<ITemplateRouter, InMemoryTemplateRouter>();
 builder.Services.AddScoped<IMongoDatabase>(x =>
 {
 	var client = x.GetRequiredService<IMongoClient>();
