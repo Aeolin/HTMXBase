@@ -14,11 +14,13 @@ using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.DataBinders.JsonOrForm;
 using System.Data;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
 	[ApiController]
 	[Route("/api/v1/collections")]
+	[Authorize]
 	public class CollectionController : HtmxBaseController
 	{
 		private readonly IHtmxTemplateStore _templateStore;
@@ -46,7 +48,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.QueryPermission == null || permissions.Contains(x.QueryPermission))).FirstOrDefaultAsync();
 			if (collection == null)
-				return Forbid("No permission to access collection");
+				return NoPermission("No permission to access collection");
 
 			var sort = Builders<BsonDocument>.Sort.Ascending("_id");
 			var filter = Builders<BsonDocument>.Filter.Gt("_id", cursor);
@@ -65,9 +67,10 @@ namespace MongoDBSemesterProjekt.Controllers
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.InsertPermission == null || permissions.Contains(x.InsertPermission))).FirstOrDefaultAsync();
 			if (collection == null)
-				return Forbid("No permission to insert data into collection");
+				return NoPermission("No permission to insert data into collection");
 
-			var doc = BsonDocument.Parse(document.RootElement.GetRawText());
+
+			var doc = BsonHelper.JsonToBsonDocumentWithSchema(document, collection.Schema);
 			doc[Constants.OWNER_ID_FIELD] = User?.GetIdentifierId();
 			await _db.GetCollection<BsonDocument>(collectionSlug).InsertOneAsync(doc);
 			return Ok(JsonDocument.Parse(doc.ToJson()));
@@ -106,7 +109,7 @@ namespace MongoDBSemesterProjekt.Controllers
 					.FirstOrDefaultAsync();
 
 				if (collectionMeta == null)
-					return Forbid("No permission to update data in collection");
+					return NoPermission("No permission to update data in collection");
 			}
 
 			var filter = Builders<BsonDocument>.Filter.Eq("_id", documentId);
@@ -130,7 +133,7 @@ namespace MongoDBSemesterProjekt.Controllers
 					.FirstOrDefaultAsync();
 				
 				if (collection == null)
-					return Forbid("No permission to delete data in collection");
+					return NoPermission("No permission to delete data in collection");
 			}
 
 			var filter = Builders<BsonDocument>.Filter.Eq("_id", documentId);
@@ -148,7 +151,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.ComplexQueryPermission == null || permissions.Contains(x.ComplexQueryPermission))).FirstOrDefaultAsync();
 			if (collection == null)
-				return Forbid("No permission to query collection");
+				return NoPermission("No permission to query collection");
 
 			var gtId = Builders<BsonDocument>.Filter.Gt("_id", cursor);
 			var filter = Builders<BsonDocument>.Filter.And(gtId, BsonDocument.Parse(query.RootElement.GetRawText()));
@@ -291,44 +294,11 @@ namespace MongoDBSemesterProjekt.Controllers
 			["description"] = "The owner of the document"
 		};
 
-		[HttpPost]
-		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
-		[ProducesResponseType(StatusCodes.Status400BadRequest)]
-		[Permission("collections/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
-		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> CreateCollectionAsync([FromBody][FromForm] ApiCollection collection)
+		private static readonly BsonDocument IdField = new BsonDocument()
 		{
-			var dbCollection = _db.GetCollection<object>(collection.Slug);
-			if (dbCollection != null)
-				return BadRequest("Collection with slug already exists");
-
-			var model = _mapper.Map<CollectionModel>(collection);
-			await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).InsertOneAsync(model);
-
-			var schema = BsonDocument.Parse(collection.Schema.RootElement.GetRawText());
-			if (schema.TryGetElement("properties", out var propertiesElement) == false || propertiesElement.Value is not BsonDocument properties)
-			{
-				properties = new BsonDocument();
-				schema["properties"] = properties;
-			}
-
-			properties[Constants.OWNER_ID_FIELD] = OwnerField;
-			var options = new CreateCollectionOptions<object>
-			{
-				Validator = new BsonDocument
-				{
-					{ "$jsonSchema", schema }
-				}
-			};
-
-			await _db.CreateCollectionAsync(collection.Slug, options);
-
-			if (collection.Templates.Length > 0)
-				_templateStore.NotifyTemplateChanged(ModifyMode.Add, collection.Slug);
-
-			return Ok(_mapper.Map<ApiCollection>(model));
-		}
+			["bsonType"] = "objectId",
+			["description"] = "The id of the document"
+		};
 
 		[HttpDelete("{collectionSlug}")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
@@ -347,5 +317,48 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok();
 		}
 
+		[HttpPost]
+		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status400BadRequest)]
+		[Permission("collections/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> CreateCollectionAsync([FromJsonOrForm] ApiCollection collection)
+		{
+			var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+			var collectionMeta = await collectionCollection.Find(x => x.Slug == collection.Slug).FirstOrDefaultAsync();
+			if (collectionMeta != null)
+				return BadRequest("Collection with slug already exists");
+
+			var model = _mapper.Map<CollectionModel>(collection);
+				
+			var schema = BsonDocument.Parse(collection.Schema.RootElement.GetRawText());
+			if (schema.TryGetElement("properties", out var propertiesElement) == false || propertiesElement.Value is not BsonDocument properties)
+			{
+				properties = new BsonDocument();
+				schema["properties"] = properties;
+			}
+
+			properties[Constants.OWNER_ID_FIELD] = OwnerField;
+			if (properties.TryGetElement("_id", out _) == false)
+				properties["_id"] = IdField;
+
+			var options = new CreateCollectionOptions<object>
+			{
+				Validator = new BsonDocument
+				{
+					{ "$jsonSchema", schema }
+				}
+			};
+
+			await _db.CreateCollectionAsync(collection.Slug, options);
+			model.Schema = JsonDocument.Parse(schema.ToJson());
+			await collectionCollection.InsertOneAsync(model);
+
+			if (collection.Templates.Length > 0)
+				_templateStore.NotifyTemplateChanged(ModifyMode.Add, collection.Slug);
+
+			return Ok(_mapper.Map<ApiCollection>(model));
+		}
 	}
 }

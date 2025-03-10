@@ -1,7 +1,10 @@
-﻿using System.Text.Json;
+﻿using AutoMapper;
+using MongoDBSemesterProjekt.Api.Models;
+using System.Text.Json;
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
+	[AutoMap(typeof(ApiCollection))]
 	public class CollectionModel : EntityBase
 	{
 		public const string CollectionName = "collections";

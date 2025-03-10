@@ -1,9 +1,12 @@
-﻿using AwosFramework.Generators.MongoDBUpdateGenerator;
+﻿using AutoMapper;
+using AwosFramework.Generators.MongoDBUpdateGenerator;
+using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.BsonSchema;
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
 	[MongoDBUpdate(typeof(CollectionModel), MethodName = "ToAddTemplate")]
+	[AutoMap(typeof(ApiTemplate))]
 	[UpdateProperty(MethodName = "ToAddTemplate", TargetPropertyName = nameof(CollectionModel.Templates), CollectionHandling = CollectionHandling.PushAll)]
 	public class TemplateModel
 	{

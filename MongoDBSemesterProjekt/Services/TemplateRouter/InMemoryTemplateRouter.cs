@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Database.Models;
+using MongoDBSemesterProjekt.Utils;
 
 namespace MongoDBSemesterProjekt.Services.TemplateRouter
 {
@@ -100,24 +101,10 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 					return false;
 				}
 
-				(bool success, object value) result = field.BsonType switch
-				{
-					BsonType.String => (true, rawValue),
-					BsonType.Int32 => (int.TryParse(rawValue, out var i), i),
-					BsonType.Int64 => (long.TryParse(rawValue, out var l), l),
-					BsonType.Double => (double.TryParse(rawValue, out var d), d),
-					BsonType.Decimal128 => (decimal.TryParse(rawValue, out var d), d),
-					BsonType.Boolean => (bool.TryParse(rawValue, out var b), b),
-					BsonType.DateTime => (DateTime.TryParse(rawValue, out var dt), dt),
-					BsonType.ObjectId => (ObjectId.TryParse(rawValue, out var oid), oid),
-					BsonType.Binary => (true, Convert.FromBase64String(rawValue)),
-					_ => (false, null)
-				};
-
-				if (result.success == false)
+				if (BsonHelper.TryParseFromBsonType(field.BsonType, raw[field.ParameterName], out var value) == false)
 					return false;
-
-				parsed[field.ParameterName] = result.value;
+				
+				parsed[field.ParameterName] = value;
 			}
 			return true;
 		}

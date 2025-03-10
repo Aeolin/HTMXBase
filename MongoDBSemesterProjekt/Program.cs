@@ -54,13 +54,13 @@ builder.Services.AddControllers(opts =>
 }).AddJsonOptions(x =>
 {
 	x.JsonSerializerOptions.Converters.Add(new ObjectIdConverter());
+	x.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
 
 builder.Services.Configure<FlatFileStorageConfig>(config.GetSection("FlatFileStorage"));
 builder.Services.AddScoped<IFileStorage, FlatFileStorage>();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMongoClient>(x => new MongoClient(x.GetRequiredService<IConfiguration>().GetConnectionString("MongoDB")));
-builder.Services.AddSingleton<ITemplateRouter, InMemoryTemplateRouter>();
 builder.Services.AddScoped<IMongoDatabase>(x =>
 {
 	var client = x.GetRequiredService<IMongoClient>();
@@ -127,6 +127,8 @@ builder.Services.AddAutoMapper(opts =>
 
 builder.Services.UseAsyncSeeding(Seeding.CreateCollectionsAsync);
 builder.Services.UseAsyncSeeding(Seeding.UpdatePermissionsAsync);
+builder.Services.AddSingleton<ITemplateRouter, InMemoryTemplateRouter>();
+
 
 var app = builder.Build();
 

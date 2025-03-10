@@ -25,6 +25,8 @@ namespace MongoDBSemesterProjekt.Controllers
 			return user;
 		}
 
+		protected IActionResult NoPermission(string reason) => StatusCode(StatusCodes.Status403Forbidden, reason); 
+
 		protected HtmxBaseController(IMongoDatabase dataBase, IMapper mapper)
 		{
 			_db = dataBase;

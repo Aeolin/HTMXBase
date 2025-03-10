@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDBSemesterProjekt.ApiModels;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.TemplateRouter;
@@ -100,12 +101,14 @@ namespace MongoDBSemesterProjekt.Controllers
 			var permissions = User?.GetPermissions();
 			if (file == null)
 			{
-				if (_router.TryRoute(HttpContext, out var routeMatch) == false)
+				if (_router.TryRoute(HttpContext, out var mRouteMatch) == false || mRouteMatch.HasValue == false)
 					return NotFound();
 
+				var routeMatch = mRouteMatch.Value; 
 				var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 				var collectionMeta = await collectionCollection
 					.Find(x => x.Slug == routeMatch.CollectionSlug &&
+					x.IsInbuilt == false &&
 					(x.QueryPermission == null ||
 					(permissions != null && permissions.Contains(x.QueryPermission))))
 					.FirstOrDefaultAsync(HttpContext.RequestAborted);
@@ -127,7 +130,9 @@ namespace MongoDBSemesterProjekt.Controllers
 						limit = 20;
 
 					query = query.Sort(SortById).Limit(limit);
-					data = await query.ToListAsync(HttpContext.RequestAborted);
+					var list = await query.ToListAsync(HttpContext.RequestAborted);
+					ObjectId? cursor = list.Count == limit ? list.Last()["_id"].AsNullableObjectId : null;
+					data = CursorResult.Create(cursor, list);
 				}
 				else
 				{
