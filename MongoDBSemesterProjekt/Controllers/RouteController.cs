@@ -21,13 +21,13 @@ namespace MongoDBSemesterProjekt.Controllers
 	{
 		public RouteController(IMongoDatabase dataBase, IMapper mapper) : base(dataBase, mapper)
 		{
-			
+
 		}
 
 		[HttpGet]
 		[ProducesResponseType<CursorResult<ApiRouteTemplate[], ObjectId?>>(StatusCodes.Status200OK)]
 		[Permission("routes/get", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
-		public async Task<IActionResult> GetRoutesAsync([FromQuery] ObjectId? cursor, [FromQuery][Range(1, 100)]int limit = 20)
+		public async Task<IActionResult> GetRoutesAsync([FromQuery] ObjectId? cursor, [FromQuery][Range(1, 100)] int limit = 20)
 		{
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			var list = await collection.Find(x => cursor == null || x.Id > cursor).Limit(limit).ToListAsync();
@@ -54,7 +54,15 @@ namespace MongoDBSemesterProjekt.Controllers
 		{
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			var options = GetReturnUpdatedOptions<RouteTemplateModel>();
-			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id, routeTemplate.ToUpdate(), options, HttpContext.RequestAborted);
+			var update = routeTemplate.ToUpdate();
+
+			if (routeTemplate.Fields?.Length > 0)
+			{
+				var fields = _mapper.Map<FieldMatchModel[]>(routeTemplate.Fields);
+				update = update.Set(x => x.Fields, fields);
+			}
+
+			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id, update, options, HttpContext.RequestAborted);
 			return Ok(_mapper.Map<ApiRouteTemplate>(result));
 		}
 
