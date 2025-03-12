@@ -6,7 +6,7 @@ using MongoDBSemesterProjekt.Database.Models;
 namespace MongoDBSemesterProjekt.Api.Models
 {
 	[AutoMap(typeof(FieldMatchModel))]
-	[MongoDBUpdate(typeof(ApiRouteTemplate), NestedProperty = "Fields[$]", MethodName = "ToAdd")]
+	[MongoDBUpdate(typeof(RouteTemplateModel), NestedProperty = "Fields[$]", MethodName = "ToAdd")]
 	public class ApiFieldMatchModel
 	{
 		public string ParameterName { get; set; }

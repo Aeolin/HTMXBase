@@ -57,5 +57,19 @@ namespace MongoDBSemesterProjekt.Controllers
 			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id, routeTemplate.ToUpdate(), options, HttpContext.RequestAborted);
 			return Ok(_mapper.Map<ApiRouteTemplate>(result));
 		}
+
+		[HttpDelete("{id}")]
+		[ProducesResponseType(StatusCodes.Status204NoContent)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[Permission("routes/delete", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		public async Task<IActionResult> DeleteRouteAsync([FromRoute] ObjectId id)
+		{
+			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
+			var result = await collection.DeleteOneAsync(x => x.Id == id, HttpContext.RequestAborted);
+			if (result.DeletedCount == 0)
+				return NotFound();
+
+			return NoContent();
+		}
 	}
 }

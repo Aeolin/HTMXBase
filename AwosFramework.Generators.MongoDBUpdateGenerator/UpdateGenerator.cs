@@ -29,7 +29,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			IncrementalValuesProvider<UpdateApiModel?> updates = context.SyntaxProvider
 				.CreateSyntaxProvider(
 					predicate: IsSyntaxTargetForGeneration,
-					transform: Transform
+					transform: TransformUpdateModel
 				).Where(x => x!=null);
 
 			var classDeclarations = context.SyntaxProvider
@@ -73,9 +73,9 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 		private static void ResolveNestedProperties(ImmutableDictionary<string, TargetClassModel> classes, UpdateMethod method, List<Diagnostic> diagnostics)
 		{
-			if(method.NestedProperty != null )
+			if (method.NestedProperty != null)
 			{
-				if(classes.TryGetValue(method.TargetClassName, out var targetClass) == false)
+				if (classes.TryGetValue(method.TargetClassName, out var targetClass) == false)
 				{
 					diagnostics.Add(Diagnostic.Create(Constants.ClassNotFound, method.SourceLocation, method.TargetClassName));
 					return;
@@ -83,7 +83,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 				var path = method.NestedProperty.Split('.');
 				TargetClassModel current = targetClass;
-				foreach(var part in path)
+				foreach (var part in path)
 				{
 					var isArray = part.EndsWith("[$]");
 					var propertyName = isArray ? part.Substring(0, part.Length - 3) : part;
@@ -94,13 +94,13 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 						return;
 					}
 
-					if(nestedProperty.IsEnumerable == false && isArray)
+					if (nestedProperty.IsEnumerable == false && isArray)
 					{
 						diagnostics.Add(Diagnostic.Create(Constants.PropertyNotEnumerable, method.SourceLocation, nestedProperty.Name, current.FullName));
 						return;
 					}
 
-					if(classes.TryGetValue(nestedProperty.Type, out current) == false)
+					if (classes.TryGetValue(nestedProperty.Type, out current) == false)
 					{
 						diagnostics.Add(Diagnostic.Create(Constants.ClassNotFound, method.SourceLocation, nestedProperty.Type));
 						return;
@@ -121,13 +121,15 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				foreach (var method in source.UpdateMethods)
 				{
 					ResolveNestedProperties(classLookup, method, source.Diagnostics);
-					if(classLookup.TryGetValue(method.GetTargetClassFullName(), out var targetClass) == false)
+					var fullName = method.GetTargetClassFullName();
+					TargetClassModel? targetClass = null;
+					if (fullName != null && classLookup.TryGetValue(fullName, out targetClass) == false)
 					{
 						source.Diagnostics.Add(Diagnostic.Create(Constants.ClassNotFound, method.SourceLocation, method.TargetClassName));
 						continue;
 					}
 
-					UpdateSourceMethodProperties(method, targetClass, source.Diagnostics);
+					UpdateSourceMethodProperties(method, targetClass!, source.Diagnostics);
 				}
 			}
 
@@ -154,9 +156,27 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				var name = x.Identifier.Text;
 				var isEnumerable = IsEnumerableOrArrayType(ctx, x, out var isString);
 				var symbol = ctx.SemanticModel.GetSymbolInfo(x.Type).Symbol;
-				var type = isEnumerable && symbol is INamedTypeSymbol namedType && namedType.IsGenericType ? namedType.TypeArguments[0].ToDisplayString() : symbol?.ToDisplayString();
+				string? type = null;
+				if (isEnumerable)
+				{
+					if (symbol is IArrayTypeSymbol arraySymbol)
+						type = arraySymbol.ElementType.ToDisplayString();
+					else if (symbol is INamedTypeSymbol namedSymbol && namedSymbol.IsGenericType)
+						type = namedSymbol.TypeArguments[0].ToDisplayString();
+				}
+				else
+				{
+					type = symbol?.ToDisplayString();
+				}
+
+
+				if (type == null)
+					return null;
+
 				return new TargetProperty(name, type, isEnumerable, isString);
-			}).ToArray();
+			})
+			.Where(x => x != null)
+			.ToArray();
 
 			return new TargetClassModel(className, nameSpace, properties);
 		}
@@ -448,7 +468,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			}
 		}
 
-		static UpdateApiModel? Transform(GeneratorSyntaxContext ctx, CancellationToken token)
+		static UpdateApiModel? TransformUpdateModel(GeneratorSyntaxContext ctx, CancellationToken token)
 		{
 			var classDeclaration = (ClassDeclarationSyntax)ctx.Node;
 			var attributes = classDeclaration.AttributeLists.SelectMany(x => x.Attributes)

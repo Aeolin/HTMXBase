@@ -16,7 +16,7 @@ namespace MongoDBSemesterProjekt.Api.Models
 		public string? TemplateSlug { get; set; }
 		public bool Paginate { get; set; }
 
-		[UpdateProperty(CollectionHandling = CollectionHandling.Set)]
+		[UpdatePropertyIgnore]
 		public ApiFieldMatchModel[]? Fields { get; set; }
 
 	}
