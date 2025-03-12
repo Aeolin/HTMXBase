@@ -1,7 +1,10 @@
-﻿using MongoDB.Bson;
+﻿using AutoMapper;
+using MongoDB.Bson;
+using MongoDBSemesterProjekt.Api.Models;
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
+	[AutoMap(typeof(ApiRouteTemplate))]
 	public class RouteTemplateModel : EntityBase
 	{
 		public const string CollectionName = "route-templates";
