@@ -129,7 +129,9 @@ builder.Services.AddAutoMapper(opts =>
 
 builder.Services.UseAsyncSeeding(Seeding.CreateCollectionsAsync);
 builder.Services.UseAsyncSeeding(Seeding.UpdatePermissionsAsync);
-builder.Services.AddSingleton<ITemplateRouter, InMemoryTemplateRouter>();
+builder.Services.AddSingleton<InMemoryTemplateRouter>();
+builder.Services.AddSingleton<ITemplateRouter>(x => x.GetRequiredService<InMemoryTemplateRouter>());
+builder.Services.AddSingleton<IHostedService>(x => x.GetRequiredService<InMemoryTemplateRouter>());
 
 
 var app = builder.Build();

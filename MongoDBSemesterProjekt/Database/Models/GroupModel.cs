@@ -15,7 +15,7 @@ namespace MongoDBSemesterProjekt.Database.Models
 		public required string Name { get; set; }	
 		public string? Description { get; set; }
 
-		[UpdateProperty(CollectionHandling = CollectionHandling.Set)]
+		[UpdateProperty(CollectionHandling = CollectionHandling.AddToSet)]
 		public IList<string> Permissions { get; set; } = new List<string>();
 	}
 }

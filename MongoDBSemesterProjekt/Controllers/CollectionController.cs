@@ -345,14 +345,25 @@ namespace MongoDBSemesterProjekt.Controllers
 		[Permission("collections/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> CreateCollectionAsync([FromJsonOrForm] ApiCollection collection, IFormFile schemaFile)
+		public async Task<IActionResult> CreateCollectionFromFormAsync([FromForm] ApiCollection collection, IFormFile schemaFile)
 		{
-			if(schemaFile != null && schemaFile.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+			if (schemaFile != null && schemaFile.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
 			{
 				using var stream = schemaFile.OpenReadStream();
 				collection.Schema = await JsonDocument.ParseAsync(stream);
 			}
 
+			return await CreateCollectionAsync(collection);
+		}
+
+		[HttpPost]
+		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status400BadRequest)]
+		[Permission("collections/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(CollectionModel.CollectionName)]
+		public async Task<IActionResult> CreateCollectionAsync([FromBody] ApiCollection collection)
+		{
 			var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 			var collectionMeta = await collectionCollection.Find(x => x.Slug == collection.Slug).FirstOrDefaultAsync();
 			if (collectionMeta != null)

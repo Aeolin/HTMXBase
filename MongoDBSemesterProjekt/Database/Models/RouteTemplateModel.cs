@@ -2,12 +2,14 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDBSemesterProjekt.Api.Models;
+using MongoDBSemesterProjekt.Api.Requests;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
 	[AutoMap(typeof(ApiRouteTemplate))]
+	[AutoMap(typeof(ApiRouteTemplateCreateRequest))]
 	public class RouteTemplateModel : EntityBase
 	{
 		public const string CollectionName = "route-templates";

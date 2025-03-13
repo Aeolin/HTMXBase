@@ -4,7 +4,6 @@ using MongoDBSemesterProjekt.Database.Models;
 
 namespace MongoDBSemesterProjekt.Api.Requests
 {
-	[AutoMap(typeof(RouteTemplateModel))]
 	public class ApiRouteTemplateCreateRequest
 	{
 		public string? UrlTemplate { get; set; }

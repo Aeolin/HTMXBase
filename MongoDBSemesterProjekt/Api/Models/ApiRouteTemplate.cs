@@ -7,6 +7,7 @@ using MongoDBSemesterProjekt.Database.Models;
 namespace MongoDBSemesterProjekt.Api.Models
 {
 	[MongoDBUpdate(typeof(RouteTemplateModel))]
+	[AutoMap(typeof(RouteTemplateModel))]
 	public class ApiRouteTemplate 
 	{
 		[UpdatePropertyIgnore]

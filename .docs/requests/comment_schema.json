@@ -1,6 +1,6 @@
 {
 	"bsonType": "object",
-	"required": ["postId", "comment"]
+	"required": ["postId", "comment"],
 	"properties": {
 		"postId": {
 			"bsonType": "objectId"

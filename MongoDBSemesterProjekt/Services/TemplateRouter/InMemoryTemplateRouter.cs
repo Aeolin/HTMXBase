@@ -72,13 +72,13 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 		public override async Task StartAsync(CancellationToken cancellationToken)
 		{
 			await _routes.Find(FilterDefinition<RouteTemplateModel>.Empty).ForEachAsync(InsertIntoTree, cancellationToken);
-			_watch = await _routes.WatchAsync();
+			//_watch = await _routes.WatchAsync();
 			await base.StartAsync(cancellationToken);
 		}
 
 		public override async Task StopAsync(CancellationToken cancellationToken)
 		{
-			_watch.Dispose();
+			_watch?.Dispose();
 			_scope.Dispose();
 			await base.StopAsync(cancellationToken);
 		}
@@ -126,11 +126,12 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 		{
 			if (context.Request.Path.HasValue)
 			{
-				var path = context.Request.Path.Value.AsSpan();
+				var path = context.Request.Path.Value.AsSpan().Slice(1);
 				var index = -1;
 				var lastIndex = 0;
 				Queue<RouteTreeNode> queue = new(16);
 				var routeValues = context.Request.Query.ToDictionary(x => x.Key, x => x.Value.First());
+				queue.Enqueue(_routeTree);
 
 				while ((index = path.IndexOf("/")) >= 0)
 				{
@@ -160,7 +161,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			await _watch.ForEachAsync(ProcessChange, stoppingToken);
+			// await _watch.ForEachAsync(ProcessChange, stoppingToken);
 		}
 
 		private void ProcessChange(ChangeStreamDocument<RouteTemplateModel> change)

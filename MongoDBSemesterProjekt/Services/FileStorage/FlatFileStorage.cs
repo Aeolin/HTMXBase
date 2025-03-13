@@ -10,10 +10,14 @@ namespace MongoDBSemesterProjekt.Services.FileStorage
 		public FlatFileStorage(IOptions<FlatFileStorageConfig> config)
 		{
 			_config=config;
+			Directory.CreateDirectory(_config.Value.StoragePath);
 		}
 
-		public Task<bool> DeleteFileAsync(string path)
+		private string MakePath(string id) => Path.Combine(_config.Value.StoragePath, $"{id}.bin");
+
+		public Task<bool> DeleteFileAsync(string id)
 		{
+			var path = MakePath(id);
 			var exists = File.Exists(path);
 			if (exists)
 				File.Delete(path);
@@ -21,20 +25,21 @@ namespace MongoDBSemesterProjekt.Services.FileStorage
 			return Task.FromResult(exists);
 		}
 
-		public Task<Stream> GetBlobAsync(string path)
+		public Task<Stream> GetBlobAsync(string id)
 		{
-			var file = File.OpenRead(path);
+			var file = File.OpenRead(MakePath(id));
 			return Task.FromResult<Stream>(file);
 		}
 
 		public async Task<string> StoreFileAsync(IFormFile formFile)
 		{
 			var id = Guid.NewGuid();
-			var path = Path.Combine(_config.Value.StoragePath, $"{id.ToString()}.bin");
-			var file = File.Create(path);
-			var source = formFile.OpenReadStream();
+			var path = MakePath(id.ToString());
+			using var file = File.Create(path);
+			using var source = formFile.OpenReadStream();
 			await source.CopyToAsync(file);
-			return path;
+			await file.FlushAsync();
+			return id.ToString();
 		}
 	}
 }

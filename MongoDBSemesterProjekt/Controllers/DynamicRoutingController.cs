@@ -196,7 +196,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				if (file.ReadPermission != null && User == null && (file.OwnerId == ownerId || (permissions?.Contains(file.ReadPermission) ?? false)) == false)
 					return NotFound(); // don't leak if resource exists
 
-				using var content = await _fileStore.GetBlobAsync(file.StorageId);
+				var content = await _fileStore.GetBlobAsync(file.StorageId);
 				if (content == null)
 					return NotFound();
 

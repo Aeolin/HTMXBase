@@ -96,8 +96,9 @@ namespace MongoDBSemesterProjekt.Controllers
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
 		public async Task<IActionResult> UpdateGroupPermissionsAsync([FromRoute] string slug, [FromJsonOrForm] ApiSetPermissionRequest permissions)
 		{
+			var update = permissions.ToGroupAddPermission();
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
-				.FindOneAndUpdateAsync(x => x.Slug == slug, permissions.ToGroupAddPermission(), GetReturnUpdatedOptions<GroupModel>());
+				.FindOneAndUpdateAsync(x => x.Slug == slug, update, GetReturnUpdatedOptions<GroupModel>());
 			
 			if (result == null)
 				return NotFound();

@@ -2,7 +2,7 @@
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
-	[Index(nameof(Slug), nameof(StorageId), IndexType = IndexType.Ascending, IsUnique = true)]
+	[Index(nameof(Slug), nameof(VirtualPath), IndexType = IndexType.Ascending, IsUnique = true)]
 	public class StaticContentModel : EntityBase
 	{
 		public const string CollectionName = "static-content";

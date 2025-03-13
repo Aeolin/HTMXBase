@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDBSemesterProjekt.Authorization;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Utils;
@@ -13,7 +14,8 @@ using System.Web;
 namespace MongoDBSemesterProjekt.Controllers
 {
 	[ApiController]
-	[Route("/files")]
+	[Route("/api/v1/files")]
+	[Authorize]
 	public class StaticContentController : ControllerBase
 	{
 		private readonly IMongoDatabase _db;
@@ -25,20 +27,15 @@ namespace MongoDBSemesterProjekt.Controllers
 			_fileStore=fileStore;
 		}
 
-		[Authorize]
 		[HttpPost]
 		[ProducesResponseType<string>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
+		[Permission("files/upload", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		public async Task<IActionResult> UploadFileAsync(IFormFile file, [FromForm] string? slug = null, [FromForm] string? virtualPath = null, [FromForm] string? deletePermission = null, [FromForm] string? readPermission = null)
 		{
 			slug ??= HttpUtility.UrlEncode(file.Name.Replace(" ", "-"));
 			var collection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
-			if ((await collection.CountDocumentsAsync(x => x.Slug == slug && x.VirtualPath == virtualPath)) > 0)
-				return BadRequest("File with Slug and VirtualPath already exists");
-
-			var owner = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-			if (ObjectId.TryParse(owner, out var ownerId) == false)
-				return BadRequest("Invalid Owner");
+			var ownerId = User.GetIdentifierId();
 
 			var path = await _fileStore.StoreFileAsync(file);
 			var content = new StaticContentModel
@@ -58,17 +55,15 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok(content.Id.ToString());
 		}
 
-		[Authorize]
 		[HttpDelete("{id}")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
+		[Permission("files/delete", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		public async Task<IActionResult> DeleteFileAsync(ObjectId id)
 		{
 			var collection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
-			var owner = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-			if (ObjectId.TryParse(owner, out var ownerId) == false)
-				return StatusCode(StatusCodes.Status500InternalServerError, "Expected id to be ObjectId");
+			var ownerId = User.GetIdentifierId();
 
 			var permissions = User.FindAll(Constants.PERMISSION_CLAIM).Select(x => x.Value).ToArray();
 			var result = await collection.FindOneAndDeleteAsync(x => x.Id == id && (x.OwnerId == ownerId || (x.DeletePermission != null && permissions.Contains(x.DeletePermission))));

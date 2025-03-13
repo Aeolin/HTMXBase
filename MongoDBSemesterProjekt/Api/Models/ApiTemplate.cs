@@ -14,7 +14,7 @@ namespace MongoDBSemesterProjekt.Api.Models
 		public bool SingleItem { get; set; }
 
 		[UpdateProperty]
-		public string Template { get; set; }
+		public string? Template { get; set; }
 
 		[UpdateProperty]
 		public bool Disabled { get; set; }
