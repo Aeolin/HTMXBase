@@ -1,7 +1,10 @@
-﻿using MongoDB.Bson;
+﻿using AutoMapper;
+using MongoDB.Bson;
+using MongoDBSemesterProjekt.Api.Models;
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
+	[AutoMap(typeof(ApiFieldMatchModel))]
 	public class FieldMatchModel
 	{
 		public required string ParameterName { get; set; }
