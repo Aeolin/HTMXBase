@@ -1,10 +1,13 @@
 ﻿using AutoMapper;
 using MongoDB.Bson;
 using MongoDBSemesterProjekt.Api.Models;
+using AwosFramework.Generators.MongoDBUpdateGenerator;
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
 	[AutoMap(typeof(ApiFieldMatchModel))]
+	[MongoDBUpdate(typeof(RouteTemplateModel), MethodName = "ToAddField")]
+	[UpdateProperty(MethodName = "ToAddField", TargetPropertyName = nameof(RouteTemplateModel.Fields), CollectionHandling = CollectionHandling.PushAll)]
 	public class FieldMatchModel
 	{
 		public required string ParameterName { get; set; }

@@ -1,0 +1,9 @@
+<ul>	
+	{{#each this}}
+	<li>
+		<h2>{{this.Name}}</h2>
+		<h3><a>/api/v1/collections/{{this.Slug}}<a><h3>
+		<p>DefaultTemplate: {{this.DefaultTemplate}}</p>
+	</li>
+	{{/each}}
+</ul>

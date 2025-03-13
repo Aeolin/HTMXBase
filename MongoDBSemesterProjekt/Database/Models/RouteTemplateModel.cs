@@ -9,6 +9,7 @@ namespace MongoDBSemesterProjekt.Database.Models
 	{
 		public const string CollectionName = "route-templates";
 
+		[Index(IsUnique = true)]
 		public required string UrlTemplate { get; set; }
 		public string? CollectionSlug { get; set; }
 		public string? TemplateSlug { get; set; }

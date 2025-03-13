@@ -15,6 +15,7 @@ using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.DataBinders.JsonOrForm;
 using System.Data;
 using Microsoft.AspNetCore.Authorization;
+using System.Text;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -162,14 +163,27 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok(CursorResult.Create(nextCursor, data.Select(x => JsonDocument.Parse(x.ToJson()))));
 		}
 
+		private async Task HandleContentFromFormFileAsync(ApiTemplate template, IFormFile templateFile)
+		{
+			if (templateFile != null)
+			{
+				var encoding = HeaderUtils.GetEncodingFromContentTypeOrDefault(templateFile.ContentType, Encoding.UTF8);
+				using var stream = templateFile.OpenReadStream();
+				using var reader = new StreamReader(stream, encoding);
+				template.Template = await reader.ReadToEndAsync();
+			}
+		}
+
 		[HttpPost("{collectionSlug}/templates")]
 		[ProducesResponseType<ApiTemplate>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[Permission("collection/create-template", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> CreateTemplateAsync(string collectionSlug, [FromJsonOrForm] TemplateModel template)
+		public async Task<IActionResult> CreateTemplateAsync(string collectionSlug, [FromJsonOrForm] ApiTemplate template, IFormFile templateFile)
 		{
+			await HandleContentFromFormFileAsync(template, templateFile);
+			var model = _mapper.Map<TemplateModel>(template);
 			var dbCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
-			var collection = await dbCollection.FindOneAndUpdateAsync(x => x.Slug == collectionSlug && x.Templates.Any(y => y.Slug == template.Slug) == false, template.ToAddTemplate(), GetReturnUpdatedOptions<CollectionModel>());
+			var collection = await dbCollection.FindOneAndUpdateAsync(x => x.Slug == collectionSlug && x.Templates.Any(y => y.Slug == template.Slug) == false, model.ToAddTemplate(), GetReturnUpdatedOptions<CollectionModel>());
 			if (collection == null)
 				return NotFound("Collection not found");
 
@@ -181,8 +195,9 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType<ApiTemplate>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[Permission("collection/modify-template", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> UpdateTemplateAsync(string collectionSlug, string templateSlug, [FromBody][FromForm] ApiTemplate template)
+		public async Task<IActionResult> UpdateTemplateAsync(string collectionSlug, string templateSlug, [FromJsonOrForm] ApiTemplate template, IFormFile templateFile)
 		{
+			await HandleContentFromFormFileAsync(template, templateFile);
 			var dbCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 			var filter = Builders<CollectionModel>.Filter.Where(x => x.Slug == collectionSlug && x.Templates.Any(x => x.Slug == templateSlug));
 
@@ -218,13 +233,13 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok();
 		}
 
-		[HttpPut("{collectionSlug}/default-template")]
+		[HttpPut("{collectionSlug}/default-template/{templateSlug}")]
 		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("collection/modify", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> SetDefaultTemplateAsync(string collectionSlug, [FromForm][FromBody] string templateSlug)
+		public async Task<IActionResult> SetDefaultTemplateAsync(string collectionSlug, string templateSlug)
 		{
 			var collections = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 			var filter = Builders<CollectionModel>.Filter.Where(x => x.Slug == collectionSlug && x.Templates.Any(x => x.Slug == templateSlug));
@@ -323,8 +338,14 @@ namespace MongoDBSemesterProjekt.Controllers
 		[Permission("collections/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> CreateCollectionAsync([FromJsonOrForm] ApiCollection collection)
+		public async Task<IActionResult> CreateCollectionAsync([FromJsonOrForm] ApiCollection collection, IFormFile schemaFile)
 		{
+			if(schemaFile != null && schemaFile.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+			{
+				using var stream = schemaFile.OpenReadStream();
+				collection.Schema = await JsonDocument.ParseAsync(stream);
+			}
+
 			var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 			var collectionMeta = await collectionCollection.Find(x => x.Slug == collection.Slug).FirstOrDefaultAsync();
 			if (collectionMeta != null)

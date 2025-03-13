@@ -5,8 +5,8 @@ using MongoDBSemesterProjekt.BsonSchema;
 
 namespace MongoDBSemesterProjekt.Database.Models
 {
-	[MongoDBUpdate(typeof(CollectionModel), MethodName = "ToAddTemplate")]
 	[AutoMap(typeof(ApiTemplate))]
+	[MongoDBUpdate(typeof(CollectionModel), MethodName = "ToAddTemplate")]
 	[UpdateProperty(MethodName = "ToAddTemplate", TargetPropertyName = nameof(CollectionModel.Templates), CollectionHandling = CollectionHandling.PushAll)]
 	public class TemplateModel
 	{

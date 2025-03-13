@@ -11,7 +11,7 @@ using MongoDBSemesterProjekt.DataBinders.JsonOrForm;
 using MongoDBSemesterProjekt.Utils;
 using System.ComponentModel.DataAnnotations;
 using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
-using System.Security.Cryptography.X509Certificates;
+using MongoDB.Driver.Linq;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -44,6 +44,60 @@ namespace MongoDBSemesterProjekt.Controllers
 			var model = _mapper.Map<RouteTemplateModel>(routeTemplate);
 			await collection.InsertOneAsync(model, null, HttpContext.RequestAborted);
 			return Ok(_mapper.Map<ApiRouteTemplate>(model));
+		}
+
+		[HttpPost("{id}/fields")]
+		[ProducesResponseType<ApiRouteTemplate>(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[Permission("routes/update", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		public async Task<IActionResult> AddFieldAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiFieldMatchModel field)
+		{
+			var model = _mapper.Map<FieldMatchModel>(field);
+			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
+			var options = GetReturnUpdatedOptions<RouteTemplateModel>();
+			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id && x.Fields.Any(x => x.ParameterName == field.ParameterName) == false, model.ToAddField(), options, HttpContext.RequestAborted);
+			if (result == null)
+				return NotFound($"Either no route with id {id} exists or a field with ParameterName {field.ParameterName} already exists");
+
+			return Ok(_mapper.Map<ApiRouteTemplate>(result));
+		}
+
+		[HttpPut("{id}/fields/{parameterName}")]
+		[ProducesResponseType<ApiFieldMatchModel>(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[Permission("routes/update", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		public async Task<IActionResult> UpdateFieldAsync([FromRoute] ObjectId id, [FromRoute] string parameterName, [FromJsonOrForm] ApiFieldMatchModel field)
+		{
+			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
+			var options = GetReturnUpdatedOptions<RouteTemplateModel>();
+			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id && x.Fields.FirstMatchingElement().ParameterName == parameterName,
+				field.ToUpdate(), 
+				options, 
+				HttpContext.RequestAborted
+			);
+			
+			if (result == null)
+				return NotFound($"Either no route with id {id} exists or a field with ParameterName {parameterName} does not exist");
+			
+			return Ok(field);
+		}
+
+		[HttpDelete("{id}/fields/{parameterName}")]
+		[ProducesResponseType(StatusCodes.Status204NoContent)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[Permission("routes/update", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		public async Task<IActionResult> DeleteFieldAsync([FromRoute] ObjectId id, [FromRoute] string parameterName)
+		{
+			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
+			var result = await collection.UpdateOneAsync(x => x.Id == id, 
+				Builders<RouteTemplateModel>.Update.PullFilter(x => x.Fields, x => x.ParameterName == parameterName), 
+				cancellationToken: HttpContext.RequestAborted
+			);
+
+			if (result.MatchedCount == 0)
+				return NotFound($"Either no route with id {id} exists or a field with ParameterName {parameterName} does not exist");
+			
+			return NoContent();
 		}
 
 		[HttpPut("{id}")]
