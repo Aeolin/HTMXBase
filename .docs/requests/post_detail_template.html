@@ -1,0 +1,30 @@
+<div class="post" data-post-id="{{Data._id}}">
+	{{#with Data}}
+	<h1 class="post-title">{{title}}</h1>
+	<div class="post-info">
+		<p class="post-date">Date <span class="date">{{date}}</span></p>
+		{{#if author}}
+		<p class="post-author">By <span class="author" hx-get="/users/{{this._ownerId}}/post-author" hx-trigger="load" hx-swap="innerHTML"><i>Author loading...</i></span></p>
+		{{/if}}
+	</div>
+	{{#exists-len summary content ">=" 1000}}
+	<div class="post-summary-container">
+		<p class="post-summary">{{summary}}</p>
+	</div>	
+	{{/exists-len}}
+	<div class="post-content">
+		{{render-md content}}
+	</div>
+	{{/with}}
+	<div id="post-comment-box" class="post-comments" hx-get="/blog/posts/{{Data._id}}/comments" hx-load="load" hx-swap="innerHTML">
+		<p>No comments...</p>
+	</div>
+	{{#if User}}
+	<form hx-post="/api/v1/collections/comments" hx-swap="beforeend" hx-target="#post-comment-box">
+		<input hidden type="text" name="author" value="{{User.Username}}"/>
+		<input hidden type="text" name="postId" value="{{Data._id}}"/>
+		<input type="text" name="comment"/>
+		<button type="submit">Send</button>
+	</form>
+	{{/if}}
+</div>

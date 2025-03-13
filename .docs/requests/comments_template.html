@@ -1,0 +1,24 @@
+<div class="comments">
+{{#with Data}}
+	<li>
+	{{#each Items}}
+		<div class="comment-container">
+			<div class="author" hx-get="/users/{{this._ownerId}}/comment-author" hx-swap="innerHTML" hx-trigger="load">Author Loading...</div>
+			<div class="comment-content">
+				<p class="comment">{{this.comment}}</p>
+			</div>
+			{{#eq ../User.Id this._ownerId}}
+				<button class="delete-comment" hx-delete="/api/v1/collections/comments/{{this._id}}" hx-target="closest(.comment-container)" hx-swap="outerHTML">Delete</button>
+			{{/eq}}
+		</div>
+	{{/each}}
+	</li>
+	{{#if Previous}}
+		<a href="/posts?limit=20&cursor={{Previous}}">Previous</a>
+	{{/if}}
+
+	{{#if Next}}
+		<a href="/posts?limit=20&cursor={{Next}}">Next</a>
+	{{/if}}
+{{/with}}
+</div>

@@ -25,7 +25,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		}
 
 		[HttpGet("groups")]
-		[ProducesResponseType<CursorResult<ApiGroup[], ObjectId>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<ObjectIdCursorResult<ApiGroup[]>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-group", Constants.ADMIN_ROLE)]
 		public async Task<IActionResult> ListGroupsAsync([FromQuery][Range(1, 100)]int limit = 20, [FromQuery]ObjectId? cursor = null) 
 		{
@@ -35,8 +35,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				.Limit(limit)
 				.ToListAsync();
 		
-			ObjectId? lastObject = groups.Count == limit ? groups.Last().Id : null;
-			return Ok(CursorResult.Create(lastObject, _mapper.Map<ApiGroup[]>(groups)));
+			return Ok(CursorResult.FromCollection(groups, limit, cursor, _mapper.Map<ApiGroup>));
 		}
 
 		[HttpPost("groups")]
@@ -135,7 +134,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		}
 
 		[HttpGet("users")]
-		[ProducesResponseType<CursorResult<ApiUser[], ObjectId>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<ObjectIdCursorResult<ApiUser[]>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
 		public async Task<IActionResult> ListUsersAsync([FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursor = null)
 		{
@@ -145,8 +144,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				.Limit(limit)
 				.ToListAsync();
 
-			ObjectId? lastObject = users.Count == limit ? users.Last().Id : null;
-			return Ok(CursorResult.Create(lastObject, _mapper.Map<ApiUser[]>(users)));
+			return Ok(CursorResult.FromCollection(users, limit, cursor, _mapper.Map<ApiUser>));
 		}
 
 		[HttpGet("users/{id}")]

@@ -31,14 +31,13 @@ namespace MongoDBSemesterProjekt.Controllers
 		{
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			var list = await collection.Find(x => cursor == null || x.Id > cursor).Limit(limit).ToListAsync();
-			var newCursor = list.Count == limit ? list.Last().Id : (ObjectId?)null;
-			return Ok(CursorResult.Create(cursor, _mapper.Map<ApiRouteTemplate[]>(list)));
+			return Ok(CursorResult.FromCollection(list, limit, cursor, _mapper.Map<ApiRouteTemplate>));
 		}
 
 		[HttpPost]
 		[ProducesResponseType<ApiRouteTemplate>(StatusCodes.Status200OK)]
 		[Permission("routes/create", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
-		public async Task<IActionResult> CreateRouteAsync([FromJsonOrForm] ApiRouteTemplateRequest routeTemplate)
+		public async Task<IActionResult> CreateRouteAsync([FromJsonOrForm] ApiRouteTemplateCreateRequest routeTemplate)
 		{
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			var model = _mapper.Map<RouteTemplateModel>(routeTemplate);
@@ -71,14 +70,14 @@ namespace MongoDBSemesterProjekt.Controllers
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			var options = GetReturnUpdatedOptions<RouteTemplateModel>();
 			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id && x.Fields.FirstMatchingElement().ParameterName == parameterName,
-				field.ToUpdate(), 
-				options, 
+				field.ToUpdate(),
+				options,
 				HttpContext.RequestAborted
 			);
-			
+
 			if (result == null)
 				return NotFound($"Either no route with id {id} exists or a field with ParameterName {parameterName} does not exist");
-			
+
 			return Ok(field);
 		}
 
@@ -89,14 +88,14 @@ namespace MongoDBSemesterProjekt.Controllers
 		public async Task<IActionResult> DeleteFieldAsync([FromRoute] ObjectId id, [FromRoute] string parameterName)
 		{
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
-			var result = await collection.UpdateOneAsync(x => x.Id == id, 
-				Builders<RouteTemplateModel>.Update.PullFilter(x => x.Fields, x => x.ParameterName == parameterName), 
+			var result = await collection.UpdateOneAsync(x => x.Id == id,
+				Builders<RouteTemplateModel>.Update.PullFilter(x => x.Fields, x => x.ParameterName == parameterName),
 				cancellationToken: HttpContext.RequestAborted
 			);
 
 			if (result.MatchedCount == 0)
 				return NotFound($"Either no route with id {id} exists or a field with ParameterName {parameterName} does not exist");
-			
+
 			return NoContent();
 		}
 

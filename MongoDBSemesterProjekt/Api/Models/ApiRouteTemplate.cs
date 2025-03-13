@@ -14,6 +14,8 @@ namespace MongoDBSemesterProjekt.Api.Models
 		public string? UrlTemplate { get; set; }
 		public string? CollectionSlug { get; set; }
 		public string? TemplateSlug { get; set; }
+		public string? StaticTemplate { get; set; }
+		public string? RedirectUrl { get; set; }
 		public bool Paginate { get; set; }
 
 		[UpdatePropertyIgnore]

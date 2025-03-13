@@ -1,6 +1,8 @@
 using AutoMapper;
 using HandlebarsDotNet;
 using HandlebarsDotNet.Extension.Json;
+using HandlebarsDotNet.Features;
+using HandlebarsDotNet.Helpers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -37,10 +39,10 @@ var config = builder.Configuration;
 
 // Add services to the container.
 
-var handlebars = Handlebars.Create();
 builder.Services.AddSingleton<IHandlebars>(HandlebarsEx.Create(cfg =>
 {
 	cfg.UseJson();
+	cfg.UseCollectionMemberAliasProvider();
 }));
 
 

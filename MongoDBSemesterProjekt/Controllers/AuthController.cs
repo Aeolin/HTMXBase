@@ -61,8 +61,16 @@ namespace MongoDBSemesterProjekt.Controllers
 				Groups = [Constants.USER_ROLE]
 			};
 
+			var users = _db.GetCollection<UserModel>(UserModel.CollectionName);
+			var count = await users.CountDocumentsAsync(FilterDefinition<UserModel>.Empty);
+			if (count == 0) // first registered user will become admin for sake of simplicity
+			{
+				user.Groups.Add(Constants.ADMIN_ROLE);
+				user.Groups.Add(Constants.BACKEND_USER);
+			}
+
 			user.PasswordHash = _hasher.HashPassword(user, request.Password);
-			await _db.GetCollection<UserModel>(UserModel.CollectionName).InsertOneAsync(user);
+			await users.InsertOneAsync(user);
 			return Ok();
 		}
 

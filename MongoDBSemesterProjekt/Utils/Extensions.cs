@@ -79,6 +79,11 @@ namespace MongoDBSemesterProjekt.Utils
 		public static string GetIdentifier(this ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier);
 		public static ObjectId GetIdentifierId(this ClaimsPrincipal principal) => ObjectId.Parse(principal.GetIdentifier());
 
+		public static JsonDocument ToJsonDocument(this BsonDocument document)
+		{
+			return JsonDocument.Parse(document.ToJson());
+		}
+
 		public static V GetOrAdd<K, V>(this Dictionary<K, V> dict, K key, Func<V> value)
 		{
 			if (dict.TryGetValue(key, out var result) == false)
@@ -99,6 +104,7 @@ namespace MongoDBSemesterProjekt.Utils
 				services.AddSingleton(typeof(IInterceptionEvents<>).MakeGenericType(entityType), interceptor);
 			}
 
+			services.AddSingleton(EntityBaseUpdatingInterceptionFactory.InterceptCustomCollections());
 			return services;
 		}
 

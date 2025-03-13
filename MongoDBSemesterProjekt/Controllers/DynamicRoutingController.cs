@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.ApiModels;
 using MongoDBSemesterProjekt.Database.Models;
@@ -9,7 +10,9 @@ using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.TemplateRouter;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
+using System.IO;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -27,12 +30,19 @@ namespace MongoDBSemesterProjekt.Controllers
 			_templateStore=templateStore;
 		}
 
-		private FilterDefinition<BsonDocument> BuildFilter(RouteTemplateModel template, Dictionary<string, object> filter)
+		private FilterDefinition<BsonDocument> BuildFilter(RouteTemplateModel template, Dictionary<string, object> filter, out ObjectId? cursorQuery)
 		{
 			var builder = Builders<BsonDocument>.Filter;
-			var filters = new List<FilterDefinition<BsonDocument>>();
-			if (template.Paginate && filter.TryGetValue("cursor", out var cursor) && cursor != null)
-				filters.Add(builder.Gt("_id", cursor));
+			var filterList = new List<FilterDefinition<BsonDocument>>();
+			if (template.Paginate && filter.TryGetValue("cursor", out var cursor) && cursor != null && cursor is ObjectId cursorObjId )
+			{
+				cursorQuery = cursorObjId;
+				filterList.Add(builder.Gt("_id", cursorObjId));
+			}
+			else
+			{
+				cursorQuery = null;
+			}
 
 			foreach (var field in template.Fields)
 			{
@@ -44,31 +54,31 @@ namespace MongoDBSemesterProjekt.Controllers
 					switch (field.MatchKind)
 					{
 						case MatchKind.Equals:
-							filters.Add(builder.Eq(field.DocumentFieldName, value));
+							filterList.Add(builder.Eq(field.DocumentFieldName, value));
 							break;
 
 						case MatchKind.Contains:
-							filters.Add(builder.AnyEq(field.DocumentFieldName, value));
+							filterList.Add(builder.AnyEq(field.DocumentFieldName, value));
 							break;
 
 						case MatchKind.NotContains:
-							filters.Add(builder.Not(builder.AnyEq(field.DocumentFieldName, value)));
+							filterList.Add(builder.Not(builder.AnyEq(field.DocumentFieldName, value)));
 							break;
 
 						case MatchKind.LargerThan:
-							filters.Add(builder.Gt(field.DocumentFieldName, value));
+							filterList.Add(builder.Gt(field.DocumentFieldName, value));
 							break;
 
 						case MatchKind.LargerOrEqual:
-							filters.Add(builder.Gte(field.DocumentFieldName, value));
+							filterList.Add(builder.Gte(field.DocumentFieldName, value));
 							break;
 
 						case MatchKind.SmallerThan:
-							filters.Add(builder.Lt(field.DocumentFieldName, value));
+							filterList.Add(builder.Lt(field.DocumentFieldName, value));
 							break;
 
 						case MatchKind.SmallerOrEqual:
-							filters.Add(builder.Lte(field.DocumentFieldName, value));
+							filterList.Add(builder.Lte(field.DocumentFieldName, value));
 							break;
 					}
 				}
@@ -78,10 +88,42 @@ namespace MongoDBSemesterProjekt.Controllers
 				}
 			}
 
-			return builder.And(filters);
+			return builder.And(filterList);
 		}
 
 		private static readonly SortDefinition<BsonDocument> SortById = Builders<BsonDocument>.Sort.Ascending("_id");
+
+		private async Task<string?> GetStaticTemplateAsync(RouteTemplateModel template)
+		{
+			if (string.IsNullOrEmpty(template.StaticTemplate))
+				return null;
+
+			StaticContentModel contentModel;
+			var contentCollection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
+			if (ObjectId.TryParse(template.StaticTemplate, out var objId))
+				contentModel = await contentCollection.Find(x => x.Id == objId).FirstOrDefaultAsync(HttpContext.RequestAborted);
+			else
+				contentModel = await FindByPath(template.StaticTemplate).FirstOrDefaultAsync(HttpContext.RequestAborted);
+
+			if (contentModel == null)
+				return null;
+
+			using var stream = await _fileStore.GetBlobAsync(contentModel.StorageId);
+			if (stream == null)
+				return null;
+
+			using var reader = new StreamReader(stream);
+			return await reader.ReadToEndAsync();
+		}
+
+		private IFindFluent<StaticContentModel, StaticContentModel> FindByPath(string path)
+		{
+			var contentCollection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
+			var lastSlash = path.LastIndexOf('/');
+			var slug = path.Substring(lastSlash + 1);
+			var virtualPath = lastSlash == -1 ? null : path.Substring(0, lastSlash);
+			return contentCollection.Find(x => x.Slug == slug && x.VirtualPath == virtualPath);
+		}
 
 		[AllowAnonymous]
 		[HttpGet("~/{**path}")]
@@ -90,13 +132,8 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType(StatusCodes.Status500InternalServerError)]
 		public async Task<IActionResult> GetFileContentAsync(string path)
-		{
-			var contentCollection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
-			var lastSlash = path.LastIndexOf('/');
-			var slug = path.Substring(lastSlash + 1);
-			var virtualPath = lastSlash == -1 ? null : path.Substring(0, lastSlash);
-
-			var file = await contentCollection.Find(x => x.Slug == slug && x.VirtualPath == virtualPath).FirstOrDefaultAsync(HttpContext.RequestAborted);
+		{	
+			var file = await FindByPath(path).FirstOrDefaultAsync(HttpContext.RequestAborted);
 			var ownerId = User?.GetIdentifierId();
 			var permissions = User?.GetPermissions();
 			if (file == null)
@@ -105,6 +142,9 @@ namespace MongoDBSemesterProjekt.Controllers
 					return NotFound();
 
 				var routeMatch = mRouteMatch.Value; 
+				if(routeMatch.RouteTemplateModel.IsRedirect)
+					return Redirect(routeMatch.RouteTemplateModel.RedirectUrl!);
+
 				var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 				var collectionMeta = await collectionCollection
 					.Find(x => x.Slug == routeMatch.CollectionSlug &&
@@ -121,7 +161,7 @@ namespace MongoDBSemesterProjekt.Controllers
 					return NotFound();
 
 				var collection = _db.GetCollection<BsonDocument>(collectionMeta.Slug);
-				var filter = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues);
+				var filter = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues, out var cursor);
 				var query = collection.Find(filter);
 				object? data = null;
 				if (routeMatch.RouteTemplateModel.Paginate)
@@ -129,10 +169,13 @@ namespace MongoDBSemesterProjekt.Controllers
 					if (routeMatch.QueryValues.TryGetValue("limit", out var limitObj) == false || limitObj is not int limit)
 						limit = 20;
 
+					if(limit > 100 || limit < 1)
+						return BadRequest("Limit must be in range 1 to 100");
+
 					query = query.Sort(SortById).Limit(limit);
 					var list = await query.ToListAsync(HttpContext.RequestAborted);
-					ObjectId? cursor = list.Count == limit ? list.Last()["_id"].AsNullableObjectId : null;
-					data = CursorResult.Create(cursor, list);
+					
+					data = CursorResult.FromCollection(list, limit, cursor, x => BsonSerializer.Deserialize<Dictionary<string, object>>(x));
 				}
 				else
 				{
@@ -142,6 +185,10 @@ namespace MongoDBSemesterProjekt.Controllers
 				var user = await GetUserAsync();
 				var templateContext = new TemplateContext(user, data);
 				var rendered = template(templateContext);
+				var staticTemplate = await GetStaticTemplateAsync(routeMatch.RouteTemplateModel);
+				if(string.IsNullOrEmpty(staticTemplate) == false)
+					rendered = staticTemplate.Replace("{{content}}", rendered);
+
 				return Content(rendered, "text/html");
 			}
 			else

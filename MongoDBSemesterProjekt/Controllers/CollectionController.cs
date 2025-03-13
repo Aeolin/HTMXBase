@@ -32,7 +32,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		}
 
 		[HttpPost("{collectionSlug}/paginate")]
-		[ProducesResponseType<CursorResult<JsonDocument, ObjectId?>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		public Task<IActionResult> PaginateFormAsync(string collectionSlug, [FromForm][Range(1, 100)] int limit = 20, [FromForm] ObjectId? cursor = null)
@@ -43,7 +43,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[HttpGet("{collectionSlug}/paginate")]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
-		[ProducesResponseType<CursorResult<JsonDocument, ObjectId?>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		public async Task<IActionResult> PaginateAsync(string collectionSlug, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursor = null)
 		{
 			var permissions = User.GetPermissions();
@@ -54,9 +54,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var sort = Builders<BsonDocument>.Sort.Ascending("_id");
 			var filter = Builders<BsonDocument>.Filter.Gt("_id", cursor);
 			var data = await _db.GetCollection<BsonDocument>(collectionSlug).Find(filter).Sort(sort).Limit(limit).ToListAsync();
-			ObjectId? nextCursor = data.Count == limit ? data.Last()["_id"].AsObjectId : null;
-
-			return Ok(CursorResult.Create(nextCursor, data.Select(x => JsonDocument.Parse(x.ToJson()))));
+			return Ok(CursorResult.FromCollection(data, limit, cursor, Extensions.ToJsonDocument));
 		}
 
 		[HttpPost("{collectionSlug}")]
@@ -144,7 +142,7 @@ namespace MongoDBSemesterProjekt.Controllers
 
 		[HttpPost("{collectionSlug}/query")]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
-		[ProducesResponseType<CursorResult<JsonDocument, ObjectId?>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
 		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromJsonOrForm] JsonDocument query, [FromQuery][Range(1, 250)] int limit = 50, [FromQuery] ObjectId? cursor = null)
@@ -158,9 +156,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var filter = Builders<BsonDocument>.Filter.And(gtId, BsonDocument.Parse(query.RootElement.GetRawText()));
 			var sort = Builders<BsonDocument>.Sort.Ascending("_id");
 			var data = await _db.GetCollection<BsonDocument>(collectionSlug).Find(filter).Sort(sort).Limit(limit).ToListAsync();
-			ObjectId? nextCursor = data.Count == limit ? data.Last()["_id"].AsObjectId : null;
-
-			return Ok(CursorResult.Create(nextCursor, data.Select(x => JsonDocument.Parse(x.ToJson()))));
+			return Ok(CursorResult.FromCollection(data, limit, cursor, Extensions.ToJsonDocument));
 		}
 
 		private async Task HandleContentFromFormFileAsync(ApiTemplate template, IFormFile templateFile)
@@ -288,7 +284,7 @@ namespace MongoDBSemesterProjekt.Controllers
 
 
 		[HttpGet("paginate")]
-		[ProducesResponseType<CursorResult<ApiCollection[], ObjectId?>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<ObjectIdCursorResult<ApiCollection[]>>(StatusCodes.Status200OK)]
 		[Permission("collections/list")]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
@@ -299,8 +295,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				.Limit(limit)
 				.ToListAsync();
 
-			ObjectId? next = collections.Count == limit ? collections.Last().Id : null;
-			return Ok(CursorResult.Create(next, _mapper.Map<ApiCollection[]>(collections)));
+			return Ok(CursorResult.FromCollection(collections, limit, cursor, _mapper.Map<ApiCollection>));
 		}
 
 		private static readonly BsonDocument OwnerField = new BsonDocument()
@@ -313,6 +308,18 @@ namespace MongoDBSemesterProjekt.Controllers
 		{
 			["bsonType"] = "objectId",
 			["description"] = "The id of the document"
+		};
+
+		private static readonly BsonDocument CreatedField = new BsonDocument()
+		{
+			["bsonType"] = "date",
+			["description"] = "The creation date of the document"
+		};
+
+		private static readonly BsonDocument UpdatedField = new BsonDocument()
+		{
+			["bsonType"] = "date",
+			["description"] = "The last update date of the document"
 		};
 
 		[HttpDelete("{collectionSlug}")]
@@ -360,9 +367,10 @@ namespace MongoDBSemesterProjekt.Controllers
 				schema["properties"] = properties;
 			}
 
+			properties["_id"] = IdField;
 			properties[Constants.OWNER_ID_FIELD] = OwnerField;
-			if (properties.TryGetElement("_id", out _) == false)
-				properties["_id"] = IdField;
+			properties[Constants.TIMESTAMP_CREATED_FIELD] = CreatedField;
+			properties[Constants.TIMESTAMP_UPDATED_FIELD] = UpdatedField;
 
 			var options = new CreateCollectionOptions<object>
 			{

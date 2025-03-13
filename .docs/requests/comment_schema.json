@@ -1,0 +1,12 @@
+{
+	"bsonType": "object",
+	"required": ["postId", "comment"]
+	"properties": {
+		"postId": {
+			"bsonType": "objectId"
+		},
+		"comment": {
+			"bsonType": "string"
+		}
+	}
+}

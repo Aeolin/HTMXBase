@@ -85,6 +85,9 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 
 		private bool TryParseRouteTemplate(RouteTemplateModel model, Dictionary<string, string> raw, Dictionary<string, object?> parsed)
 		{
+			if (model.IsRedirect)
+				return true;
+
 			foreach (var field in model.Fields)
 			{
 				if (raw.TryGetValue(field.ParameterName, out var rawValue) == false && field.IsOptional == false)
@@ -106,6 +109,16 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				
 				parsed[field.ParameterName] = value;
 			}
+
+			if (model.Paginate)
+			{
+				if (raw.TryGetValue("limit", out var limit) && int.TryParse(limit, out var limitValue))
+					parsed["limit"] = limitValue;
+
+				if (raw.TryGetValue("cursor", out var cursor) && ObjectId.TryParse(cursor, out var cursorValue))	
+					parsed["cursor"] = cursorValue;
+			}
+
 			return true;
 		}
 
@@ -131,10 +144,10 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 
 				var parsedValues = new Dictionary<string, object?>();
 				var template = queue.FirstOrDefault(x => x.RouteTemplate != null && TryParseRouteTemplate(x.RouteTemplate, routeValues, parsedValues)).RouteTemplate;
-				var collectionSlug = template.CollectionSlug ?? routeValues.GetValueOrDefault("collectionId");
+				var collectionSlug = template.CollectionSlug ?? routeValues.GetValueOrDefault("collectionSlug");
 				if (template != null && collectionSlug != null)
 				{
-					var templateSlug = template.TemplateSlug ?? routeValues.GetValueOrDefault("templateId");
+					var templateSlug = template.TemplateSlug ?? routeValues.GetValueOrDefault("templateSlug");
 					match = new RouteMatch(collectionSlug, templateSlug, parsedValues, template);
 					return true;
 				}

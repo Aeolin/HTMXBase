@@ -1,0 +1,20 @@
+{
+	"bsonType": "object",
+	"required": ["title", "slug", "date", "content"]
+	"properties": {
+		"title": {
+			"bsonType": "string"
+		},
+		"slug": {
+			"bsonType": "string",
+			"maxLength": 256
+		},
+		"summary": {
+			"bsonType": "string",
+			"maxLength": 1024
+		},
+		"content": {
+			"bsonType": "string"
+		}
+	}
+}
