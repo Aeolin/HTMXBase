@@ -181,6 +181,17 @@
     font-family: monospace;
 }
 
+.pagination-box a {
+	color: var(--background-secondary);
+	transition: all 0.15s ease-in-out;	
+}
+
+.pagination-box a:hover {
+	text-decoration: underline;
+	color: var(--accent);
+	transition: all 0.15s ease-in-out;
+}
+
 .nav-container {
     display: flex;
     justify-content: right;
