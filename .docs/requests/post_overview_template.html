@@ -12,12 +12,14 @@
 	</li>
 {{/each}}
 
+</ul>
+<div class="pagination-box">
 {{#if Previous}}
-<a href="/posts?limit=20&cursor={{Previous}}">Previous</a>
+	<a class="previous" href="/posts?limit=20&cursorPrevious={{Previous}}">Previous</a>
 {{/if}}
 
 {{#if Next}}
-<a href="/posts?limit=20&cursor={{Next}}">Next</a>
+	<a class="next" href="/posts?limit=20&cursorNext={{Next}}>Next</a>
 {{/if}}
+</div>
 {{/with}}
-</ul>

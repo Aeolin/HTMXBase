@@ -1,21 +1,32 @@
 <html>
-	<head>
-		<link rel="stylesheet" href="/static-content/styles.css">
-		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
-		<script defer>
-			document.addEventListener("htmx:configRequest", function(event) {
-				event.detail.headers['Accept'] = 'text/html';
-			});
+
+<head>
+	<link rel="stylesheet" href="/static-content/styles.css">
+	<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+	<script defer="">
+		document.addEventListener("htmx:configRequest", function (event) {
+			event.detail.headers['Accept'] = 'text/html';
+		});
 	</script>
-	</head>
-	<body>
-		<div class="nav-bar">
-			<ul>
-				<li class="nav-item"><a class="nav-link" href="/login">Login</a><li>	
+</head>
+
+<body>
+	<div class="nav-bar">
+		<div class="nav-title">
+			<p><a href="/">Aeolin's Blog</a></p>
+		</div>
+		<div>
+			<ul class="nav-container">
+				<li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+				<li class="nav-item"><a class="nav-link" href="/blog/posts">Posts</a></li>
 			</ul>
 		</div>
+	</div>
+	<div class="page-body">
 		<div class="page-content">
-			{{content}}
-		</div>
-	</body>
+		{{content}}
+		</div>	
+	</div>
+</body>
+
 </html>

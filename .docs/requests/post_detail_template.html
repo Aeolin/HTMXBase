@@ -1,28 +1,32 @@
 <div class="post" data-post-id="{{Data._id}}">
 	{{#with Data}}
 	<h1 class="post-title">{{title}}</h1>
+	<p class="post-info-label label">Written By</p>
 	<div class="post-info">
-		<p class="post-date">Date <span class="date">{{date}}</span></p>
-		<p class="post-author">By <span class="author" hx-get="/users/{{this._ownerId}}/post-author" hx-trigger="load" hx-swap="innerHTML"><i>Author loading...</i></span></p>
+		<p class="post-author" hx-get="/users/{{this._ownerId}}/post-author" hx-trigger="load" hx-swap="outerHTML">Author loading...</p>
+		<p class="post-date">Last Updated <span class="date">{{this._updated}}</span></p>
 	</div>
 	{{#exists-len summary content ">=" 1000}}
 	<div class="post-summary-container">
-		<p class="post-summary">{{summary}}</p>
-	</div>	
+		<p class="post-summary-label label">Summary</p>
+		<p class="post-summary">Post with lorem ipsum content</p>
+	</div>
 	{{/exists-len}}
 	<div class="post-content">
 		{{render-md content}}
 	</div>
 	{{/with}}
-	<div id="post-comment-box" class="post-comments" hx-get="/blog/posts/{{Data._id}}/comments" hx-trigger="load" hx-swap="innerHTML">
+	<div id="post-comment-box" class="post-comments" hx-get="/blog/posts/{{Data._id}}/comments?limit=5" hx-trigger="load" hx-swap="innerHTML">
+		<div class=".comments">
 		<p>No comments...</p>
+		</div>
 	</div>
 	{{#if User}}
-	<form hx-post="/api/v1/collections/comments" hx-swap="beforeend" hx-target="#post-comment-box">
-		<input hidden type="text" name="author" value="{{User.Username}}"/>
-		<input hidden type="text" name="postId" value="{{Data._id}}"/>
-		<input type="text" name="comment"/>
-		<button type="submit">Send</button>
+	<p class="write-comment-label label">Write Comment</p>
+	<form class="write-comment" hx-post="/api/v1/collections/comments" hx-swap="beforeend" hx-target=".comments">
+		<input hidden="" type="text" name="postId" value="{{Data._id}}">
+		<textarea name="comment"></textarea>
+		<button class="submit-button" type="submit">Send</button>
 	</form>
 	{{/if}}
 </div>

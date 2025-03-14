@@ -1,24 +1,27 @@
 <div class="comments">
-{{#with Data}}
-	<li>
+{{#with Data}}	
 	{{#each Items}}
 		<div class="comment-container">
-			<div class="author" hx-get="/users/{{this._ownerId}}/comment-author" hx-swap="innerHTML" hx-trigger="load">Author Loading...</div>
+			<div class="comment-header">
+				<div class="author" hx-get="/users/{{this._ownerId}}/comment-author" hx-swap="outerHTML" hx-trigger="load">Author Loading...</div>
+				<p class="comment-date">Date <span class="date">{{this._updated}}</span></p>
+			</div>
 			<div class="comment-content">
 				<p class="comment">{{this.comment}}</p>
-			</div>
+			</div>	
 			{{#eq @root.User.Id this._ownerId}}
-				<button class="delete-comment" hx-delete="/api/v1/collections/comments/{{this._id}}" hx-target="closest(.comment-container)" hx-swap="outerHTML">Delete</button>
+				<button class="delete-comment" hx-delete="/api/v1/collections/comments/{{this._id}}" hx-target="closest .comment-container" hx-swap="outerHTML">Delete</button>
 			{{/eq}}
 		</div>
 	{{/each}}
-	</li>
+	<div class="pagination-box">
 	{{#if Previous}}
-		<a href="/posts?limit=20&cursor={{Previous}}">Previous</a>
+		<a class="previous" hx-get="/blog/posts/{{Items.0.postId}}/comments?limit=5&cursorPrevious={{Previous}}" hx-swap="outerHTML" hx-target=".comments">Previous</a>
 	{{/if}}
 
 	{{#if Next}}
-		<a href="/posts?limit=20&cursor={{Next}}">Next</a>
+		<a class="next" hx-get="/blog/posts/{{Items.0.postId}}/comments?limit=5&cursorNext={{Next}}" hx-swap="outerHTML" hx-target=".comments">Next</a>
 	{{/if}}
+	</div>
 {{/with}}
 </div>

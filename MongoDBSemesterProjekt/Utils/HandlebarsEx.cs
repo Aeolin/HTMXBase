@@ -1,8 +1,10 @@
 ﻿using HandlebarsDotNet;
 using HandlebarsDotNet.Helpers;
+using HandlebarsDotNet.IO;
 using HandlebarsDotNet.PathStructure;
 using Markdig;
 using System.Collections.Frozen;
+using System.Diagnostics.CodeAnalysis;
 
 namespace MongoDBSemesterProjekt.Utils
 {
@@ -11,6 +13,7 @@ namespace MongoDBSemesterProjekt.Utils
 		public static IHandlebars Create(Action<HandlebarsConfiguration> configure = null)
 		{
 			var cfg = new HandlebarsConfiguration();
+			cfg.FormatterProviders.Add(new CustomDateTimeFormatter("dd.MM.yyyy HH:mm:ss"));
 			configure?.Invoke(cfg);
 			var handleBars = Handlebars.Create(cfg);
 			HandlebarsHelpers.Register(handleBars);
@@ -19,6 +22,33 @@ namespace MongoDBSemesterProjekt.Utils
 			handleBars.RegisterEqualsHelper();
 			handleBars.RegisterNumberComparisonHelper();
 			return handleBars;
+		}
+
+		public sealed class CustomDateTimeFormatter : IFormatter, IFormatterProvider
+		{
+			private readonly string _format;
+
+			public CustomDateTimeFormatter([StringSyntax("DateTime")]string format) => _format = format;
+
+			public void Format<T>(T value, in EncodedTextWriter writer)
+			{
+				if (!(value is DateTime dateTime))
+					throw new ArgumentException("supposed to be DateTime");
+
+				writer.Write($"{dateTime.ToString(_format)}");
+			}
+
+			public bool TryCreateFormatter(Type type, out IFormatter formatter)
+			{
+				if (type != typeof(DateTime))
+				{
+					formatter = null;
+					return false;
+				}
+
+				formatter = this;
+				return true;
+			}
 		}
 
 		public static IHandlebars RegisterEqualsHelper(this IHandlebars handleBars)

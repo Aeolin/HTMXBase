@@ -32,18 +32,26 @@ namespace MongoDBSemesterProjekt.Controllers
 			_templateStore=templateStore;
 		}
 
-		private FilterDefinition<BsonDocument> BuildFilter(RouteTemplateModel template, Dictionary<string, object> filter, out ObjectId? cursorQuery)
+		private FilterDefinition<BsonDocument> BuildFilter(RouteTemplateModel template, Dictionary<string, object> filter, out ObjectId? nextCursor, out bool sortAscending)
 		{
 			var builder = Builders<BsonDocument>.Filter;
 			var filterList = new List<FilterDefinition<BsonDocument>>();
-			if (template.Paginate && filter.TryGetValue("cursor", out var cursor) && cursor != null && cursor is ObjectId cursorObjId)
+			if (template.Paginate && filter.TryGetValue("cursorNext", out var cursorNext) && cursorNext != null && cursorNext is ObjectId cursorNextId)
 			{
-				cursorQuery = cursorObjId;
-				filterList.Add(builder.Gt("_id", cursorObjId));
+				sortAscending = true;
+				nextCursor = cursorNextId;
+				filterList.Add(builder.Gt("_id", cursorNextId));
+			}
+			else if (template.Paginate && filter.TryGetValue("cursorPrevious", out var cursorPrevious) && cursorPrevious != null && cursorPrevious is ObjectId cursorPreviousId)
+			{
+				sortAscending = false;
+				nextCursor = null;
+				filterList.Add(builder.Lte("_id", cursorPreviousId));
 			}
 			else
 			{
-				cursorQuery = null;
+				nextCursor = null;
+				sortAscending = true;
 			}
 
 			foreach (var field in template.Fields)
@@ -104,7 +112,8 @@ namespace MongoDBSemesterProjekt.Controllers
 			}
 		}
 
-		private static readonly SortDefinition<BsonDocument> SortById = Builders<BsonDocument>.Sort.Ascending("_id");
+		private static readonly SortDefinition<BsonDocument> SortByIdAsc = Builders<BsonDocument>.Sort.Ascending("_id");
+		private static readonly SortDefinition<BsonDocument> SortByIdDesc = Builders<BsonDocument>.Sort.Descending("_id");
 
 		private async Task<string?> GetStaticTemplateAsync(RouteTemplateModel template)
 		{
@@ -132,6 +141,9 @@ namespace MongoDBSemesterProjekt.Controllers
 		private IFindFluent<StaticContentModel, StaticContentModel> FindByPath(string path)
 		{
 			var contentCollection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
+			if(string.IsNullOrEmpty(path))
+				return contentCollection.Find(x => (x.Slug == null || x.Slug == "") && (x.VirtualPath == null || x.VirtualPath == ""));
+			
 			var lastSlash = path.LastIndexOf('/');
 			var slug = path.Substring(lastSlash + 1);
 			var virtualPath = lastSlash == -1 ? null : path.Substring(0, lastSlash);
@@ -182,7 +194,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType(StatusCodes.Status500InternalServerError)]
-		public async Task<IActionResult> HandleDynamicRouteAsync(string path)
+		public async Task<IActionResult> HandleDynamicRouteAsync(string? path = null)
 		{
 			var ownerId = User?.GetIdentifierId();
 			var permissions = User?.GetPermissions();
@@ -216,7 +228,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				return NotFound();
 
 			var collection = _db.GetCollection<BsonDocument>(collectionMeta.Slug);
-			var filter = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues, out var cursor);
+			var filter = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues, out var cursor, out var sortAscending);
 			var query = collection.Find(filter);
 			object? data = null;
 			if (routeMatch.RouteTemplateModel.Paginate)
@@ -226,9 +238,11 @@ namespace MongoDBSemesterProjekt.Controllers
 
 				if (limit > 100 || limit < 1)
 					return BadRequest("Limit must be in range 1 to 100");
-
-				query = query.Sort(SortById).Limit(limit);
+					
+				query = query.Sort(sortAscending ? SortByIdAsc : SortByIdDesc).Limit(limit);	
 				var list = await query.ToListAsync(HttpContext.RequestAborted);
+				if (sortAscending == false)
+					list.Reverse();
 
 				data = CursorResult.FromCollection(list, limit, cursor, x => BsonSerializer.Deserialize<Dictionary<string, object>>(x));
 			}

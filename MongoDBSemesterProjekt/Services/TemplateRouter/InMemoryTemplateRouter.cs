@@ -46,7 +46,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 
 		private void InsertIntoTree(RouteTemplateModel routeTemplateModel)
 		{
-			var path = routeTemplateModel.UrlTemplate.Split("/");
+			var path = routeTemplateModel.UrlTemplate.Split("/", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 			var current = _routeTree;
 			foreach (var part in path)
 			{
@@ -127,8 +127,11 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				if (raw.TryGetValue("limit", out var limit) && int.TryParse(limit, out var limitValue))
 					parsed["limit"] = limitValue;
 
-				if (raw.TryGetValue("cursor", out var cursor) && ObjectId.TryParse(cursor, out var cursorValue))
-					parsed["cursor"] = cursorValue;
+				if (raw.TryGetValue("cursorNext", out var cursorNext) && ObjectId.TryParse(cursorNext, out var cursorNextValue))
+					parsed["cursorNext"] = cursorNextValue;
+
+				if(raw.TryGetValue("cursorPrevious", out var cursorPrevious) && ObjectId.TryParse(cursorPrevious, out var cursorPreviousValue))
+					parsed["cursorPrevious"] = cursorPreviousValue;
 			}
 
 			var collectionSlug = model?.CollectionSlug ?? raw.GetValueOrDefault("collectionSlug");
