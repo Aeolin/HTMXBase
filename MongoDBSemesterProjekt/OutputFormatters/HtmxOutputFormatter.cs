@@ -3,8 +3,11 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Net.Http.Headers;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Controllers;
+using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
 using System.Reflection.Metadata;
@@ -51,11 +54,8 @@ namespace MongoDBSemesterProjekt.OutputFormatters
 			if (group != Constants.HTMX_ENDPOINT)
 				return false;
 
-			if (TryGetTemplateId(context?.HttpContext, out var templateId) == false)
-				return false;
-
 			var mongoCollection = context.HttpContext.GetEndpoint().Metadata.GetMetadata<EndpointMongoCollectionAttribute>();
-			string collectionSlug = mongoCollection.CollectionSlug;
+			string collectionSlug = mongoCollection?.CollectionSlug;
 			if (collectionSlug == null)
 			{
 				if (context.HttpContext.Request.RouteValues.TryGetValue("collectionSlug", out var collectionId) == false || collectionId is not string collectionIdStr)
@@ -65,6 +65,7 @@ namespace MongoDBSemesterProjekt.OutputFormatters
 			}
 
 			var store = context!.HttpContext.RequestServices.GetRequiredService<IHtmxTemplateStore>();
+			TryGetTemplateId(context?.HttpContext, out var templateId);
 			if (store.HasTemplate(collectionSlug, templateId) == false)
 				return false;
 
@@ -73,12 +74,10 @@ namespace MongoDBSemesterProjekt.OutputFormatters
 
 		public override async Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
 		{
-				var store = context.HttpContext.RequestServices.GetRequiredService<IHtmxTemplateStore>();
-			if (TryGetTemplateId(context.HttpContext, out var templateId) == false)
-				throw new InvalidOperationException("TemplateId not found");
-
+			var store = context.HttpContext.RequestServices.GetRequiredService<IHtmxTemplateStore>();
+			TryGetTemplateId(context.HttpContext, out var templateId);
 			var mongoCollection = context.HttpContext.GetEndpoint().Metadata.GetMetadata<EndpointMongoCollectionAttribute>();
-			string collectionSlug = mongoCollection.CollectionSlug;
+			string collectionSlug = mongoCollection?.CollectionSlug;
 			if (collectionSlug == null)
 			{
 				if (context.HttpContext.Request.RouteValues.TryGetValue("collectionSlug", out var collectionId) == false || collectionId is not string collectionIdStr)
@@ -86,10 +85,28 @@ namespace MongoDBSemesterProjekt.OutputFormatters
 
 				collectionSlug = collectionIdStr;
 			}
-	
+
 			var template = await store.GetTemplateAsync(collectionSlug, templateId);
 			var model = context.Object;
-			var html = template(model);
+			if (model is BsonDocument bDoc)
+			{
+				model = BsonSerializer.Deserialize<Dictionary<string, object?>>(bDoc);
+			}
+
+			if (model is IEnumerable<BsonDocument> enumerable)
+			{
+				model = enumerable.Select(x => BsonSerializer.Deserialize<Dictionary<string, object?>>(x)).ToArray();
+			}
+
+			var userId = context.HttpContext.User.GetIdentifierId();
+			UserModel user = null;
+			if (userId != null)
+			{
+				var db = context.HttpContext.RequestServices.GetRequiredService<IMongoDatabase>();
+				user = db.GetCollection<UserModel>(UserModel.CollectionName).Find(bDoc => bDoc.Id == userId).FirstOrDefault();
+			}
+
+			var html = template(new TemplateContext(user, model));
 			await context.HttpContext.Response.BodyWriter.WriteAsync(selectedEncoding.GetBytes(html));
 		}
 	}

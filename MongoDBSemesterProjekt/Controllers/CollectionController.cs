@@ -16,6 +16,7 @@ using MongoDBSemesterProjekt.DataBinders.JsonOrForm;
 using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Text;
+using MongoDB.Bson.Serialization;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -54,7 +55,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var sort = Builders<BsonDocument>.Sort.Ascending("_id");
 			var filter = Builders<BsonDocument>.Filter.Gt("_id", cursor);
 			var data = await _db.GetCollection<BsonDocument>(collectionSlug).Find(filter).Sort(sort).Limit(limit).ToListAsync();
-			return Ok(CursorResult.FromCollection(data, limit, cursor, Extensions.ToJsonDocument));
+			return Ok(CursorResult.FromCollection(data, limit, cursor));
 		}
 
 		[HttpPost("{collectionSlug}")]
@@ -68,11 +69,10 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NoPermission("No permission to insert data into collection");
 
-
 			var doc = BsonHelper.JsonToBsonDocumentWithSchema(document, collection.Schema);
 			doc[Constants.OWNER_ID_FIELD] = User?.GetIdentifierId();
 			await _db.GetCollection<BsonDocument>(collectionSlug).InsertOneAsync(doc);
-			return Ok(JsonDocument.Parse(doc.ToJson()));
+			return Ok(doc);
 		}
 
 		private async Task<bool> IsOwnerAsync(IMongoCollection<BsonDocument> documentCollection, ObjectId documentId)
@@ -99,21 +99,22 @@ namespace MongoDBSemesterProjekt.Controllers
 		{
 			var permissions = User.GetPermissions();
 			var documentCollection = _db.GetCollection<BsonDocument>(collectionSlug);
-			var isOwner = await IsOwnerAsync(documentCollection, documentId);
-			if (isOwner == false)
-			{
 				var collectionMeta = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
 					.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false &&
 					(x.ModifyPermission == null || permissions.Contains(x.ModifyPermission)))
 					.FirstOrDefaultAsync();
 
+			var isOwner = await IsOwnerAsync(documentCollection, documentId);
+			if (isOwner == false)
+			{
 				if (collectionMeta == null)
 					return NoPermission("No permission to update data in collection");
 			}
 
+			var doc = BsonHelper.JsonToBsonDocumentWithSchema(document, collectionMeta.Schema);
 			var filter = Builders<BsonDocument>.Filter.Eq("_id", documentId);
-			var response = await documentCollection.FindOneAndReplaceAsync(filter, BsonDocument.Parse(document.RootElement.GetRawText()));
-			return Ok(JsonDocument.Parse(response.ToJson()));
+			var updatedDoc = await documentCollection.FindOneAndReplaceAsync(filter, doc);
+			return Ok(updatedDoc);
 		}
 
 		[HttpDelete("{collectionSlug}/{documentId}")]
@@ -156,7 +157,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var filter = Builders<BsonDocument>.Filter.And(gtId, BsonDocument.Parse(query.RootElement.GetRawText()));
 			var sort = Builders<BsonDocument>.Sort.Ascending("_id");
 			var data = await _db.GetCollection<BsonDocument>(collectionSlug).Find(filter).Sort(sort).Limit(limit).ToListAsync();
-			return Ok(CursorResult.FromCollection(data, limit, cursor, Extensions.ToJsonDocument));
+			return Ok(CursorResult.FromCollection(data, limit, cursor));
 		}
 
 		private async Task HandleContentFromFormFileAsync(ApiTemplate template, IFormFile templateFile)

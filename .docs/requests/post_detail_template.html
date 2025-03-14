@@ -14,7 +14,7 @@
 		{{render-md content}}
 	</div>
 	{{/with}}
-	<div id="post-comment-box" class="post-comments" hx-get="/blog/posts/{{Data._id}}/comments" hx-load="load" hx-swap="innerHTML">
+	<div id="post-comment-box" class="post-comments" hx-get="/blog/posts/{{Data._id}}/comments" hx-trigger="load" hx-swap="innerHTML">
 		<p>No comments...</p>
 	</div>
 	{{#if User}}

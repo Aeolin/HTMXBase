@@ -33,7 +33,13 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 		{
 			var collections = await _db.GetCollection<CollectionModel>("collections").Find(x => x.Templates.Count > 0).ToListAsync();
 			foreach (var collection in collections)
+			{
 				_collectionIds.AddRange(collection.Templates.Where(x => x.Disabled == false).Select(x => MakeKey(collection.Slug, x.Slug)));
+				if(string.IsNullOrEmpty(collection.DefaultTemplate) == false && collection.Templates.Any(y => y.Slug == collection.DefaultTemplate))
+				{
+					_collectionIds.Add(MakeKey(collection.Slug));
+				}
+			}
 		}
 
 		private async Task UpdateAsync(string collectionSlug)
@@ -125,5 +131,6 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 			return _collectionIds.Contains(MakeKey(collectionId, templateId));
 		}
 
+		public bool HasDefaultTemplate(string collectionId) => HasTemplate(collectionId);
 	}
 }

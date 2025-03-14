@@ -2,6 +2,11 @@
 	<head>
 		<link rel="stylesheet" href="/static-content/styles.css">
 		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+		<script defer>
+			document.addEventListener("htmx:configRequest", function(event) {
+				event.detail.headers['Accept'] = 'text/html';
+			});
+	</script>
 	</head>
 	<body>
 		<div class="nav-bar">

@@ -39,8 +39,11 @@ namespace MongoDBSemesterProjekt.Controllers
 		[Permission("routes/create", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
 		public async Task<IActionResult> CreateRouteAsync([FromJsonOrForm] ApiRouteTemplateCreateRequest routeTemplate)
 		{
-			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			var model = _mapper.Map<RouteTemplateModel>(routeTemplate);
+			if(model.Fields?.Length > 0 && (model.IsRedirect || model.IsStaticContentAlias))
+				return BadRequest("Fields are not allowed on redirect or static content alias routes");
+
+			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			await collection.InsertOneAsync(model, null, HttpContext.RequestAborted);
 			return Ok(_mapper.Map<ApiRouteTemplate>(model));
 		}

@@ -11,6 +11,7 @@ namespace MongoDBSemesterProjekt.Api.Requests
 		public string? TemplateSlug { get; set; }
 		public string? StaticTemplate { get; set; }
 		public string? RedirectUrl { get; set; }
+		public string? VirtualPathTemplate { get; set; }
 		public bool Paginate { get; set; }
 		public ApiFieldMatchModel[]? Fields { get; set; }
 	}

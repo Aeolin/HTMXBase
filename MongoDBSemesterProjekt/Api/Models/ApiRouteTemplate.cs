@@ -17,7 +17,9 @@ namespace MongoDBSemesterProjekt.Api.Models
 		public string? TemplateSlug { get; set; }
 		public string? StaticTemplate { get; set; }
 		public string? RedirectUrl { get; set; }
+		public string? VirtualPathTemplate { get; set; }
 		public bool Paginate { get; set; }
+
 
 		[UpdatePropertyIgnore]
 		public ApiFieldMatchModel[]? Fields { get; set; }

@@ -43,7 +43,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				OwnerId = ownerId.Value,
 				Length = file.Length,
 				MimeType = file.ContentType,
-				Name = file.Name,
+				Name = file.FileName,
 				StorageId = path,
 				VirtualPath = virtualPath,
 				Slug = slug,

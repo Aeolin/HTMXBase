@@ -86,6 +86,16 @@ namespace MongoDBSemesterProjekt.Utils
 			return null;
 		}
 
+		public static IEnumerable<T> SelectWhere<T, S>(this IEnumerable<S> items, Func<S, (bool keep, T mapped)> mapper)
+		{
+			foreach(var item in items)
+			{
+				var (keep, mapped) = mapper(item);
+				if (keep)
+					yield return mapped;
+			}
+		}
+
 		public static JsonDocument ToJsonDocument(this BsonDocument document)
 		{
 			return JsonDocument.Parse(document.ToJson());

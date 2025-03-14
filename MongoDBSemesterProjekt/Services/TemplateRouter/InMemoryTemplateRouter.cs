@@ -5,6 +5,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Utils;
+using System.Text.RegularExpressions;
 
 namespace MongoDBSemesterProjekt.Services.TemplateRouter
 {
@@ -60,7 +61,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 					{
 						node = RouteTreeNode.Create(part);
 					}
-					
+
 					current.Children.Add(node);
 				}
 
@@ -84,31 +85,41 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 			await base.StopAsync(cancellationToken);
 		}
 
-		private bool TryParseRouteTemplate(RouteTemplateModel model, Dictionary<string, string> raw, Dictionary<string, object?> parsed)
+		private static readonly Regex VirtualPathTemplatePattern = new Regex(@"(?:\/|^|$)\{(\S*)\}(?:\/|^|$)", RegexOptions.Compiled);
+
+		private bool TryParseRouteTemplate(RouteTemplateModel model, Dictionary<string, string> raw, out RouteMatch? match)
 		{
-			if (model.IsRedirect)
-				return true;
-
-			foreach (var field in model.Fields)
+			var parsed = new Dictionary<string, object?>();
+			if (model.Fields != null && model.IsRedirect == false && model.IsStaticContentAlias == false)
 			{
-				if (raw.TryGetValue(field.ParameterName, out var rawValue) == false && field.IsOptional == false)
-					return false;
-
-				if (string.IsNullOrEmpty(rawValue))
+				foreach (var field in model.Fields)
 				{
-					if (field.IsNullable)
+					if (raw.TryGetValue(field.ParameterName, out var rawValue) == false && field.IsOptional == false)
 					{
-						parsed[field.ParameterName] = null;
-						continue;
+						match = null;
+						return false;
 					}
 
-					return false;
-				}
+					if (string.IsNullOrEmpty(rawValue))
+					{
+						if (field.IsNullable)
+						{
+							parsed[field.ParameterName] = null;
+							continue;
+						}
 
-				if (BsonHelper.TryParseFromBsonType(field.BsonType, raw[field.ParameterName], out var value) == false)
-					return false;
-				
-				parsed[field.ParameterName] = value;
+						match = null;
+						return false;
+					}
+
+					if (BsonHelper.TryParseFromBsonType(field.BsonType, raw[field.ParameterName], out var value) == false)
+					{
+						match = null;
+						return false;
+					}
+
+					parsed[field.ParameterName] = value;
+				}
 			}
 
 			if (model.Paginate)
@@ -116,8 +127,20 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				if (raw.TryGetValue("limit", out var limit) && int.TryParse(limit, out var limitValue))
 					parsed["limit"] = limitValue;
 
-				if (raw.TryGetValue("cursor", out var cursor) && ObjectId.TryParse(cursor, out var cursorValue))	
+				if (raw.TryGetValue("cursor", out var cursor) && ObjectId.TryParse(cursor, out var cursorValue))
 					parsed["cursor"] = cursorValue;
+			}
+
+			var collectionSlug = model?.CollectionSlug ?? raw.GetValueOrDefault("collectionSlug");
+			var templateSlug = model.TemplateSlug ?? raw.GetValueOrDefault("templateSlug");
+			if (model.IsStaticContentAlias)
+			{
+				var constructedAlias = VirtualPathTemplatePattern.Replace(model.VirtualPathTemplate!, (x) => raw[x.Groups[1].Value]);
+				match = new RouteMatch(constructedAlias, model);
+			}
+			else
+			{
+				match = new RouteMatch(collectionSlug, templateSlug, parsed, model);
 			}
 
 			return true;
@@ -136,26 +159,23 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				while (path.Length > 0)
 				{
 					index = path.IndexOf('/');
-					if(index == -1)
+					if (index == -1)
 						index = path.Length;
 
 					var part = path.Slice(0, index);
 					path = path.Slice(Math.Min(path.Length, index+1));
-					var next = queue.Dequeue();
-					foreach (var child in next.Children)
-						if (child.Matches(part, routeValues))
-							queue.Enqueue(child);
+					var queueSize = queue.Count;
+					while (queueSize-- > 0)
+					{
+						var next = queue.Dequeue();
+						foreach (var child in next.Children)
+							if (child.Matches(part, routeValues))
+								queue.Enqueue(child);
+					}
 				}
 
-				var parsedValues = new Dictionary<string, object?>();
-				var template = queue.FirstOrDefault(x => x.RouteTemplate != null && TryParseRouteTemplate(x.RouteTemplate, routeValues, parsedValues))?.RouteTemplate;
-				var collectionSlug = template?.CollectionSlug ?? routeValues.GetValueOrDefault("collectionSlug");
-				if (template != null && (template.IsRedirect || collectionSlug != null))
-				{
-					var templateSlug = template.TemplateSlug ?? routeValues.GetValueOrDefault("templateSlug");
-					match = new RouteMatch(collectionSlug, templateSlug, parsedValues, template);
-					return true;
-				}
+				match = queue.Where(x => x.RouteTemplate != null).SelectWhere(x => (TryParseRouteTemplate(x.RouteTemplate, routeValues, out var match), match)).FirstOrDefault();
+				return match != null;
 			}
 
 

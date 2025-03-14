@@ -17,12 +17,17 @@ namespace MongoDBSemesterProjekt.Database.Models
 		[Index(IsUnique = true)]
 		public required string UrlTemplate { get; set; }
 
+		public string? VirtualPathTemplate { get; set; }
 		public string? RedirectUrl { get; set; }
 		public string? CollectionSlug { get; set; }
 		public string? TemplateSlug { get; set; }
 		public string? StaticTemplate { get; set; }
 		public bool Paginate { get; set; }
 		public FieldMatchModel[]? Fields { get; set; }
+
+		[BsonIgnore]
+		[JsonIgnore]
+		public bool IsStaticContentAlias => string.IsNullOrEmpty(VirtualPathTemplate) == false;
 
 		[BsonIgnore]
 		[JsonIgnore]

@@ -20,6 +20,7 @@ using MongoDBSemesterProjekt.Database;
 using MongoDBSemesterProjekt.Database.InterceptingShim;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Database.Session;
+using MongoDBSemesterProjekt.Middleware;
 using MongoDBSemesterProjekt.OutputFormatters;
 using MongoDBSemesterProjekt.Serializers;
 using MongoDBSemesterProjekt.Services.FileStorage;
@@ -56,6 +57,7 @@ builder.Services.AddControllers(opts =>
 }).AddJsonOptions(x =>
 {
 	x.JsonSerializerOptions.Converters.Add(new ObjectIdConverter());
+	x.JsonSerializerOptions.Converters.Add(new BsonDocumentConverter());
 	x.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
 
@@ -132,7 +134,7 @@ builder.Services.UseAsyncSeeding(Seeding.UpdatePermissionsAsync);
 builder.Services.AddSingleton<InMemoryTemplateRouter>();
 builder.Services.AddSingleton<ITemplateRouter>(x => x.GetRequiredService<InMemoryTemplateRouter>());
 builder.Services.AddSingleton<IHostedService>(x => x.GetRequiredService<InMemoryTemplateRouter>());
-
+builder.Services.AddSingleton<RedirectHandlingMiddleware>();
 
 var app = builder.Build();
 
@@ -151,10 +153,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
+app.UseMiddleware<RedirectHandlingMiddleware>();
 app.Run();

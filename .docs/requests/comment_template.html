@@ -1,7 +1,7 @@
 <div class="comment-container">
-	<div class="author" hx-get="/users/{{_ownerId}}/comment-author" hx-swap="innerHTML" hx-trigger="load">Author Loading...</div>
+	<div class="author" hx-get="/users/{{Data._ownerId}}/comment-author" hx-swap="innerHTML" hx-trigger="load">Author Loading...</div>
 	<div class="comment-content">
 		<p class="comment">{{comment}}</p>
 	</div>
-	<button class="delete-comment" hx-delete="/api/v1/collections/comments/{{_id}}" hx-target="closest(.comment-container)" hx-swap="outerHTML">Delete</button>
+	<button class="delete-comment" hx-delete="/api/v1/collections/comments/{{Data._id}}" hx-target="closest(.comment-container)" hx-swap="outerHTML">Delete</button>
 </div>

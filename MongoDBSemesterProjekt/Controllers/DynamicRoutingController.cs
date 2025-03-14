@@ -10,8 +10,10 @@ using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.TemplateRouter;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
+using System.Collections.Frozen;
 using System.IO;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 
 namespace MongoDBSemesterProjekt.Controllers
@@ -34,7 +36,7 @@ namespace MongoDBSemesterProjekt.Controllers
 		{
 			var builder = Builders<BsonDocument>.Filter;
 			var filterList = new List<FilterDefinition<BsonDocument>>();
-			if (template.Paginate && filter.TryGetValue("cursor", out var cursor) && cursor != null && cursor is ObjectId cursorObjId )
+			if (template.Paginate && filter.TryGetValue("cursor", out var cursor) && cursor != null && cursor is ObjectId cursorObjId)
 			{
 				cursorQuery = cursorObjId;
 				filterList.Add(builder.Gt("_id", cursorObjId));
@@ -136,83 +138,114 @@ namespace MongoDBSemesterProjekt.Controllers
 			return contentCollection.Find(x => x.Slug == slug && x.VirtualPath == virtualPath);
 		}
 
+		private async Task<IActionResult> HandleFile(string path, ObjectId? ownerId, FrozenSet<string> permissions, string? staticTemplate = null)
+		{
+			var file = await FindByPath(path).FirstOrDefaultAsync(HttpContext.RequestAborted);
+			if (file == null)
+				return null;
+
+			if (file.ReadPermission != null && User == null && (file.OwnerId == ownerId || (permissions?.Contains(file.ReadPermission) ?? false)) == false)
+				return NotFound(); // don't leak if resource exists
+
+			var content = await _fileStore.GetBlobAsync(file.StorageId);
+			if (content == null)
+				return NotFound();
+
+			if (string.IsNullOrEmpty(staticTemplate) == false)
+			{
+				var template = await FindByPath(staticTemplate).FirstOrDefaultAsync();
+				if (template == null)
+					return NotFound();
+
+				var templateContent = await _fileStore.GetBlobAsync(template.StorageId);
+				if (templateContent == null)
+					return NotFound();
+
+				using var innerReader = new StreamReader(content);
+				var innerContent = await innerReader.ReadToEndAsync();
+
+				using var outerReader = new StreamReader(templateContent);
+				var outerContent = await outerReader.ReadToEndAsync();
+
+				var output = outerContent.Replace("{{content}}", innerContent);
+				return File(Encoding.UTF8.GetBytes(output), template.MimeType);
+			}
+			else
+			{
+				return File(content, file.MimeType);
+			}
+		}
+
 		[AllowAnonymous]
 		[HttpGet("~/{**path}")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType(StatusCodes.Status500InternalServerError)]
-		public async Task<IActionResult> GetFileContentAsync(string path)
-		{	
-			var file = await FindByPath(path).FirstOrDefaultAsync(HttpContext.RequestAborted);
+		public async Task<IActionResult> HandleDynamicRouteAsync(string path)
+		{
 			var ownerId = User?.GetIdentifierId();
 			var permissions = User?.GetPermissions();
-			if (file == null)
+			var file = await HandleFile(path, ownerId, permissions);
+			if (file != null)
+				return file;
+
+			if (_router.TryRoute(HttpContext, out var mRouteMatch) == false || mRouteMatch.HasValue == false)
+				return NotFound();
+
+			var routeMatch = mRouteMatch.Value;
+			if (routeMatch.RouteTemplateModel.IsRedirect)
+				return Redirect(routeMatch.RouteTemplateModel.RedirectUrl!);
+
+			if (routeMatch.IsStaticContentAlias)
+				return await HandleFile(routeMatch.StaticContentAlias!, ownerId, permissions, routeMatch.RouteTemplateModel.StaticTemplate) ?? NotFound();
+
+
+			var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
+			var collectionMeta = await collectionCollection
+				.Find(x => x.Slug == routeMatch.CollectionSlug &&
+				(x.QueryPermission == null ||
+				(permissions != null && permissions.Contains(x.QueryPermission))))
+				.FirstOrDefaultAsync(HttpContext.RequestAborted);
+
+			if (collectionMeta == null)
+				return NotFound();
+
+			var template = await _templateStore.GetTemplateAsync(collectionMeta.Slug, routeMatch.TemplateSlug ?? collectionMeta.DefaultTemplate);
+			if (template == null)
+				return NotFound();
+
+			var collection = _db.GetCollection<BsonDocument>(collectionMeta.Slug);
+			var filter = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues, out var cursor);
+			var query = collection.Find(filter);
+			object? data = null;
+			if (routeMatch.RouteTemplateModel.Paginate)
 			{
-				if (_router.TryRoute(HttpContext, out var mRouteMatch) == false || mRouteMatch.HasValue == false)
-					return NotFound();
+				if (routeMatch.QueryValues.TryGetValue("limit", out var limitObj) == false || limitObj is not int limit)
+					limit = 20;
 
-				var routeMatch = mRouteMatch.Value; 
-				if(routeMatch.RouteTemplateModel.IsRedirect)
-					return Redirect(routeMatch.RouteTemplateModel.RedirectUrl!);
+				if (limit > 100 || limit < 1)
+					return BadRequest("Limit must be in range 1 to 100");
 
-				var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
-				var collectionMeta = await collectionCollection
-					.Find(x => x.Slug == routeMatch.CollectionSlug &&
-					(x.QueryPermission == null ||
-					(permissions != null && permissions.Contains(x.QueryPermission))))
-					.FirstOrDefaultAsync(HttpContext.RequestAborted);
+				query = query.Sort(SortById).Limit(limit);
+				var list = await query.ToListAsync(HttpContext.RequestAborted);
 
-				if (collectionMeta == null)
-					return NotFound();
-
-				var template = await _templateStore.GetTemplateAsync(collectionMeta.Slug, routeMatch.TemplateSlug ?? collectionMeta.DefaultTemplate);
-				if (template == null)
-					return NotFound();
-
-				var collection = _db.GetCollection<BsonDocument>(collectionMeta.Slug);
-				var filter = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues, out var cursor);
-				var query = collection.Find(filter);
-				object? data = null;
-				if (routeMatch.RouteTemplateModel.Paginate)
-				{
-					if (routeMatch.QueryValues.TryGetValue("limit", out var limitObj) == false || limitObj is not int limit)
-						limit = 20;
-
-					if(limit > 100 || limit < 1)
-						return BadRequest("Limit must be in range 1 to 100");
-
-					query = query.Sort(SortById).Limit(limit);
-					var list = await query.ToListAsync(HttpContext.RequestAborted);
-					
-					data = CursorResult.FromCollection(list, limit, cursor, x => BsonSerializer.Deserialize<Dictionary<string, object>>(x));
-				}
-				else
-				{
-					var doc = await query.FirstOrDefaultAsync(HttpContext.RequestAborted);
-					data = BsonSerializer.Deserialize<Dictionary<string, object>>(doc);
-				}
-
-				var user = await GetUserAsync();
-				var templateContext = new TemplateContext(user, data);
-				var rendered = template(templateContext);
-				var staticTemplate = await GetStaticTemplateAsync(routeMatch.RouteTemplateModel);
-				if(string.IsNullOrEmpty(staticTemplate) == false)
-					rendered = staticTemplate.Replace("{{content}}", rendered);
-
-				return Content(rendered, "text/html");
+				data = CursorResult.FromCollection(list, limit, cursor, x => BsonSerializer.Deserialize<Dictionary<string, object>>(x));
 			}
 			else
 			{
-				if (file.ReadPermission != null && User == null && (file.OwnerId == ownerId || (permissions?.Contains(file.ReadPermission) ?? false)) == false)
-					return NotFound(); // don't leak if resource exists
-
-				var content = await _fileStore.GetBlobAsync(file.StorageId);
-				if (content == null)
-					return NotFound();
-
-				return File(content, file.MimeType, file.Name);
+				var doc = await query.FirstOrDefaultAsync(HttpContext.RequestAborted);
+				data = BsonSerializer.Deserialize<Dictionary<string, object>>(doc);
 			}
+
+			var user = await GetUserAsync();
+			var templateContext = new TemplateContext(user, data);
+			var rendered = template(templateContext);
+			var staticTemplate = await GetStaticTemplateAsync(routeMatch.RouteTemplateModel);
+			if (string.IsNullOrEmpty(staticTemplate) == false)
+				rendered = staticTemplate.Replace("{{content}}", rendered);
+
+			return Content(rendered, "text/html");
 		}
 	}
 }

@@ -1,0 +1,8 @@
+<div class="login-form">
+	<h3>Login</h3>
+	<form hx-post="/api/v1/auth/login?useCookie=true&redirect=%2Findex.html">
+		<input type="text" name="usernameOrEmail" placeholder="Username or Email"/>
+		<input type="password" name="password" placeholder="Password"/>
+		<button type="submit">Login</button>
+	</form>
+</div>
