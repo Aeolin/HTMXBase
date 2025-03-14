@@ -40,7 +40,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var path = await _fileStore.StoreFileAsync(file);
 			var content = new StaticContentModel
 			{
-				OwnerId = ownerId,
+				OwnerId = ownerId.Value,
 				Length = file.Length,
 				MimeType = file.ContentType,
 				Name = file.Name,

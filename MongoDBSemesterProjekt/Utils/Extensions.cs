@@ -77,7 +77,14 @@ namespace MongoDBSemesterProjekt.Utils
 		public static FrozenSet<string> GetPermissions(this ClaimsPrincipal principal) => principal == null ? FrozenSet<string>.Empty : principal.FindAll(x => x.Type == Constants.PERMISSION_CLAIM).Select(x => x.Value).ToFrozenSet();
 		public static bool HasPermission(this ClaimsPrincipal principal, string permission) => principal.HasClaim(x => x.Type == Constants.PERMISSION_CLAIM && x.Value == permission);
 		public static string GetIdentifier(this ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier);
-		public static ObjectId GetIdentifierId(this ClaimsPrincipal principal) => ObjectId.Parse(principal.GetIdentifier());
+		public static ObjectId? GetIdentifierId(this ClaimsPrincipal principal)
+		{
+			var id = principal.GetIdentifier();
+			if (ObjectId.TryParse(id, out var objId))
+				return objId;
+
+			return null;
+		}
 
 		public static JsonDocument ToJsonDocument(this BsonDocument document)
 		{

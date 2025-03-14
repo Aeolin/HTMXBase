@@ -15,6 +15,9 @@ namespace MongoDBSemesterProjekt.Utils
 			var handleBars = Handlebars.Create(cfg);
 			HandlebarsHelpers.Register(handleBars);
 			handleBars.RegisterExistsLengthHelper();
+			handleBars.RegisterMarkdownHelper();
+			handleBars.RegisterEqualsHelper();
+			handleBars.RegisterNumberComparisonHelper();
 			return handleBars;
 		}
 
@@ -32,7 +35,7 @@ namespace MongoDBSemesterProjekt.Utils
 
 		public static IHandlebars RegisterExistsLengthHelper(this IHandlebars handleBars)
 		{
-			handleBars.RegisterHelper("exists-lengt", ExistsMinLengthImpl);
+			handleBars.RegisterHelper("exists-len", ExistsLengthImpl);
 			return handleBars;
 		}
 
@@ -106,7 +109,7 @@ namespace MongoDBSemesterProjekt.Utils
 			["<="] = (a, b) => a <= b
 		}.ToFrozenDictionary();
 
-		private static void ExistsMinLengthImpl(EncodedTextWriter output, BlockHelperOptions options, Context ctx, Arguments args)
+		private static void ExistsLengthImpl(EncodedTextWriter output, BlockHelperOptions options, Context ctx, Arguments args)
 		{
 			void handleImpl(string propertyExists, string propertyLength, string op, int minLength)
 			{

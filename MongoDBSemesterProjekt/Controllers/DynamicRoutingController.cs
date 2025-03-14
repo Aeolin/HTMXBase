@@ -88,7 +88,18 @@ namespace MongoDBSemesterProjekt.Controllers
 				}
 			}
 
-			return builder.And(filterList);
+			if (filterList.Count == 0)
+			{
+				return builder.Empty;
+			}
+			else if (filterList.Count == 1)
+			{
+				return filterList.First();
+			}
+			else
+			{
+				return builder.And(filterList);
+			}
 		}
 
 		private static readonly SortDefinition<BsonDocument> SortById = Builders<BsonDocument>.Sort.Ascending("_id");
@@ -148,7 +159,6 @@ namespace MongoDBSemesterProjekt.Controllers
 				var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 				var collectionMeta = await collectionCollection
 					.Find(x => x.Slug == routeMatch.CollectionSlug &&
-					x.IsInbuilt == false &&
 					(x.QueryPermission == null ||
 					(permissions != null && permissions.Contains(x.QueryPermission))))
 					.FirstOrDefaultAsync(HttpContext.RequestAborted);
@@ -179,7 +189,8 @@ namespace MongoDBSemesterProjekt.Controllers
 				}
 				else
 				{
-					data = await query.FirstOrDefaultAsync(HttpContext.RequestAborted);
+					var doc = await query.FirstOrDefaultAsync(HttpContext.RequestAborted);
+					data = BsonSerializer.Deserialize<Dictionary<string, object>>(doc);
 				}
 
 				var user = await GetUserAsync();

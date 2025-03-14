@@ -60,9 +60,10 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 					{
 						node = RouteTreeNode.Create(part);
 					}
+					
+					current.Children.Add(node);
 				}
 
-				current.Children.Add(node);
 				current = node;
 			}
 
@@ -128,15 +129,18 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 			{
 				var path = context.Request.Path.Value.AsSpan().Slice(1);
 				var index = -1;
-				var lastIndex = 0;
 				Queue<RouteTreeNode> queue = new(16);
 				var routeValues = context.Request.Query.ToDictionary(x => x.Key, x => x.Value.First());
 				queue.Enqueue(_routeTree);
 
-				while ((index = path.IndexOf("/")) >= 0)
+				while (path.Length > 0)
 				{
-					var part = path.Slice(lastIndex, index);
-					lastIndex = index;
+					index = path.IndexOf('/');
+					if(index == -1)
+						index = path.Length;
+
+					var part = path.Slice(0, index);
+					path = path.Slice(Math.Min(path.Length, index+1));
 					var next = queue.Dequeue();
 					foreach (var child in next.Children)
 						if (child.Matches(part, routeValues))
@@ -144,9 +148,9 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				}
 
 				var parsedValues = new Dictionary<string, object?>();
-				var template = queue.FirstOrDefault(x => x.RouteTemplate != null && TryParseRouteTemplate(x.RouteTemplate, routeValues, parsedValues)).RouteTemplate;
-				var collectionSlug = template.CollectionSlug ?? routeValues.GetValueOrDefault("collectionSlug");
-				if (template != null && collectionSlug != null)
+				var template = queue.FirstOrDefault(x => x.RouteTemplate != null && TryParseRouteTemplate(x.RouteTemplate, routeValues, parsedValues))?.RouteTemplate;
+				var collectionSlug = template?.CollectionSlug ?? routeValues.GetValueOrDefault("collectionSlug");
+				if (template != null && (template.IsRedirect || collectionSlug != null))
 				{
 					var templateSlug = template.TemplateSlug ?? routeValues.GetValueOrDefault("templateSlug");
 					match = new RouteMatch(collectionSlug, templateSlug, parsedValues, template);

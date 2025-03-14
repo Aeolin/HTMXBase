@@ -3,12 +3,12 @@
 {{#each Items}}
 	<li>
 		<div class="post-list-item" data-post-id="{{this.id}}">
-			<a class="post-link" href="/posts/{{this.slug}}"><h3 class="post-title">{{this.title}}</h3></a>
+			<a class="post-link" href="/blog/posts/{{this.slug}}"><h3 class="post-title">{{this.title}}</h3></a>
 			<p class="post-date">Date <span class="date">{{this._updated}}</span></p>
 			{{#if this.summary}}
 				<p class="post-summary">{{this.summary}}</p>
 			{{/if}}
-		<div>
+		</div>
 	</li>
 {{/each}}
 
