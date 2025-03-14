@@ -125,7 +125,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var permissions = User.GetPermissions();
 			var documentCollection = _db.GetCollection<BsonDocument>(collectionSlug);
 			var isOwner = await IsOwnerAsync(documentCollection, documentId);
-			if (isOwner == false)
+			if (isOwner == false)	
 			{
 				var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
 					.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && 

@@ -7,7 +7,7 @@
 			<div class="comment-content">
 				<p class="comment">{{this.comment}}</p>
 			</div>
-			{{#eq ../User.Id this._ownerId}}
+			{{#eq @root.User.Id this._ownerId}}
 				<button class="delete-comment" hx-delete="/api/v1/collections/comments/{{this._id}}" hx-target="closest(.comment-container)" hx-swap="outerHTML">Delete</button>
 			{{/eq}}
 		</div>
