@@ -28,7 +28,7 @@ namespace MongoDBSemesterProjekt.ApiModels
 
 	public static class CursorResult
 	{
-		private static ObjectId GetId<TItem>(TItem item)
+		public static ObjectId GetId<TItem>(TItem item)
 		{
 			if (item is EntityBase eBase)
 				return eBase.Id;

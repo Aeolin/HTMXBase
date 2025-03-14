@@ -27,11 +27,12 @@ namespace MongoDBSemesterProjekt.Controllers
 		[HttpGet]
 		[ProducesResponseType<CursorResult<ApiRouteTemplate[], ObjectId?>>(StatusCodes.Status200OK)]
 		[Permission("routes/get", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
-		public async Task<IActionResult> GetRoutesAsync([FromQuery] ObjectId? cursor, [FromQuery][Range(1, 100)] int limit = 20)
-		{
-			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
-			var list = await collection.Find(x => cursor == null || x.Id > cursor).Limit(limit).ToListAsync();
-			return Ok(CursorResult.FromCollection(list, limit, cursor, _mapper.Map<ApiRouteTemplate>));
+		public async Task<IActionResult> GetRoutesAsync([FromQuery] ObjectId? cursorNext = null, [FromQuery]ObjectId? cursorPrevious = null, [FromQuery][Range(1, 100)] int limit = 20)
+		{	
+			var data = await _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName)
+				.PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiRouteTemplate>);
+
+			return Ok(data);
 		}
 
 		[HttpPost]

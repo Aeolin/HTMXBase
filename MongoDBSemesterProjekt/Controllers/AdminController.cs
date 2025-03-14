@@ -27,15 +27,12 @@ namespace MongoDBSemesterProjekt.Controllers
 		[HttpGet("groups")]
 		[ProducesResponseType<ObjectIdCursorResult<ApiGroup[]>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> ListGroupsAsync([FromQuery][Range(1, 100)]int limit = 20, [FromQuery]ObjectId? cursor = null) 
+		public async Task<IActionResult> ListGroupsAsync([FromQuery][Range(1, 100)]int limit = 20, [FromQuery]ObjectId? cursorNext = null, [FromQuery]ObjectId? cursorPrevious = null) 
 		{
-			cursor ??= ObjectId.Empty;
-			var groups = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
-				.Find(x => x.Id > cursor)
-				.Limit(limit)
-				.ToListAsync();
-		
-			return Ok(CursorResult.FromCollection(groups, limit, cursor, _mapper.Map<ApiGroup>));
+			var data = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
+				.PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiGroup>);
+
+			return Ok(data);
 		}
 
 		[HttpPost("groups")]
@@ -137,15 +134,12 @@ namespace MongoDBSemesterProjekt.Controllers
 		[HttpGet("users")]
 		[ProducesResponseType<ObjectIdCursorResult<ApiUser[]>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> ListUsersAsync([FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursor = null)
-		{
-			cursor ??= ObjectId.Empty;
-			var users = await _db.GetCollection<UserModel>(UserModel.CollectionName)
-				.Find(x => x.Id > cursor)
-				.Limit(limit)
-				.ToListAsync();
+		public async Task<IActionResult> ListUsersAsync([FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorNext = null, [FromQuery] ObjectId? cursorPrevious = null)
+		{	
+			var data = await _db.GetCollection<UserModel>(UserModel.CollectionName)
+				.PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiUser>);
 
-			return Ok(CursorResult.FromCollection(users, limit, cursor, _mapper.Map<ApiUser>));
+			return Ok(data);
 		}
 
 		[HttpGet("users/{id}")]

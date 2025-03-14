@@ -5,6 +5,7 @@ using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
+using MongoDBSemesterProjekt.ApiModels;
 using MongoDBSemesterProjekt.BsonSchema;
 using MongoDBSemesterProjekt.Database.InterceptingShim;
 using MongoDBSemesterProjekt.Database.Models;
@@ -53,7 +54,7 @@ namespace MongoDBSemesterProjekt.Utils
 				_ => (default, false)
 			};
 
-			if(propertyFound && result is T tResult)
+			if (propertyFound && result is T tResult)
 			{
 				value = tResult;
 				return true;
@@ -65,7 +66,7 @@ namespace MongoDBSemesterProjekt.Utils
 
 		[return: NotNullIfNotNull(nameof(@string))]
 		public static string? ToCamelCase(this string @string) => @string == null ? null : (@string.Length > 1 ? char.ToLower(@string[0]) + @string[1..] : @string.ToLower());
-		
+
 		[return: NotNullIfNotNull(nameof(@string))]
 		public static string? ToPascalCase(this string @string) => @string == null ? null : (@string.Length > 1 ? char.ToUpper(@string[0]) + @string[1..] : @string.ToUpper());
 
@@ -86,9 +87,73 @@ namespace MongoDBSemesterProjekt.Utils
 			return null;
 		}
 
+		public static async Task<ObjectIdCursorResult<TTarget>> PaginateAsync<TItem, TTarget>(this IMongoCollection<TItem> collection, int limit, ObjectId? next, ObjectId? previous, Expression<Func<TItem, object>> exp, Func<TItem, TTarget> map, Func<TItem, ObjectId>? idGetter = null)
+		{
+			if (next.HasValue)
+			{
+				var res = await collection.Find(Builders<TItem>.Filter.Gt(exp, next.Value)).SortBy(exp).Limit(limit).ToListAsync();
+				return CursorResult.FromCollection(res, limit, next, map, idGetter);
+			}
+			else if (previous.HasValue)
+			{
+				idGetter ??= CursorResult.GetId;
+				var res = await collection.Find(Builders<TItem>.Filter.Lte(exp, previous.Value)).SortByDescending(exp).Limit(limit).ToListAsync();
+				res.Reverse();
+				ObjectId? prevId = res.Count > 0 ? idGetter(res.First()) : null;
+				return CursorResult.FromCollection(res, limit, prevId, map, idGetter);
+			}
+			else
+			{
+				var res = await collection.Find(Builders<TItem>.Filter.Empty).SortBy(exp).ToListAsync();
+				return CursorResult.FromCollection(res, limit, null, map, idGetter);
+			}
+		}
+
+
+		public static FilterDefinition<TItem> CombineFilters<TItem>(FilterDefinition<TItem>? filter = null, ICollection<FilterDefinition<TItem>> filterList = null)
+		{
+			if (filterList == null || filterList.Count == 0)
+				return filter ?? Builders<TItem>.Filter.Empty;
+
+			if (filter != null)
+				filterList.Add(filter);
+
+			return filterList.Count == 1 ? filterList.First() : Builders<TItem>.Filter.And(filterList);
+		}
+
+		private static readonly SortDefinition<BsonDocument> SortIdAsc = Builders<BsonDocument>.Sort.Ascending("_id");
+		private static readonly SortDefinition<BsonDocument> SortIdDesc = Builders<BsonDocument>.Sort.Descending("_id");
+		public static Task<ObjectIdCursorResult<BsonDocument>> PaginateAsync(this IMongoCollection<BsonDocument> collection, int limit, ObjectId? next, ObjectId? previous, ICollection<FilterDefinition<BsonDocument>> filterList = null)
+		{
+			return PaginateAsync(collection, limit, next, previous, x => x, filterList);
+		}
+
+		public static async Task<ObjectIdCursorResult<TResult>> PaginateAsync<TResult>(this IMongoCollection<BsonDocument> collection, int limit, ObjectId? next, ObjectId? previous, Func<BsonDocument, TResult> map, ICollection<FilterDefinition<BsonDocument>> filterList = null)
+		{
+			if (next.HasValue)
+			{
+				var filter = CombineFilters(Builders<BsonDocument>.Filter.Gt("_id", next.Value), filterList);
+				var res = await collection.Find(filter).Sort(SortIdAsc).Limit(limit).ToListAsync();
+				return CursorResult.FromCollection(res, limit, next, map);
+			}
+			else if (previous.HasValue)
+			{
+				var filter = CombineFilters(Builders<BsonDocument>.Filter.Lte("_id", previous.Value), filterList);
+				var res = await collection.Find(filter).Sort(SortIdDesc).Limit(limit).ToListAsync();
+				res.Reverse();
+				return CursorResult.FromCollection(res, limit, res.FirstOrDefault()?["_id"].AsNullableObjectId, map);
+			}
+			else
+			{
+				var filter = CombineFilters(null, filterList);
+				var res = await collection.Find(filter).Sort(SortIdAsc).Limit(limit).ToListAsync();
+				return CursorResult.FromCollection(res, limit, null, map);
+			}
+		}
+
 		public static IEnumerable<T> SelectWhere<T, S>(this IEnumerable<S> items, Func<S, (bool keep, T mapped)> mapper)
 		{
-			foreach(var item in items)
+			foreach (var item in items)
 			{
 				var (keep, mapped) = mapper(item);
 				if (keep)

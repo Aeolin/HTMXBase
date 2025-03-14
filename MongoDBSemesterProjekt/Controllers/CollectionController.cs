@@ -36,26 +36,24 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		public Task<IActionResult> PaginateFormAsync(string collectionSlug, [FromForm][Range(1, 100)] int limit = 20, [FromForm] ObjectId? cursor = null)
+		public Task<IActionResult> PaginateFormAsync(string collectionSlug, [FromForm][Range(1, 100)] int limit = 20, [FromForm] ObjectId? cursorNext = null,[FromForm]ObjectId? cursorPrevious = null)
 		{
-			return PaginateAsync(collectionSlug, limit, cursor);
+			return PaginateAsync(collectionSlug, limit, cursorNext, cursorPrevious);
 		}
 
 		[HttpGet("{collectionSlug}/paginate")]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
-		public async Task<IActionResult> PaginateAsync(string collectionSlug, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursor = null)
+		public async Task<IActionResult> PaginateAsync(string collectionSlug, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorPrevious = null, [FromQuery] ObjectId? cursorNext = null)
 		{
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.QueryPermission == null || permissions.Contains(x.QueryPermission))).FirstOrDefaultAsync();
 			if (collection == null)
 				return NoPermission("No permission to access collection");
 
-			var sort = Builders<BsonDocument>.Sort.Ascending("_id");
-			var filter = Builders<BsonDocument>.Filter.Gt("_id", cursor);
-			var data = await _db.GetCollection<BsonDocument>(collectionSlug).Find(filter).Sort(sort).Limit(limit).ToListAsync();
-			return Ok(CursorResult.FromCollection(data, limit, cursor));
+			var data = await _db.GetCollection<BsonDocument>(collectionSlug).PaginateAsync(limit, cursorNext, cursorPrevious);
+			return Ok(data);
 		}
 
 		[HttpPost("{collectionSlug}")]
@@ -146,18 +144,17 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromJsonOrForm] JsonDocument query, [FromQuery][Range(1, 250)] int limit = 50, [FromQuery] ObjectId? cursor = null)
+		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromJsonOrForm] JsonDocument query, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorNext = null, [FromQuery] ObjectId? cursorPrevious = null)
 		{
 			var permissions = User.GetPermissions();
 			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.ComplexQueryPermission == null || permissions.Contains(x.ComplexQueryPermission))).FirstOrDefaultAsync();
 			if (collection == null)
 				return NoPermission("No permission to query collection");
 
-			var gtId = Builders<BsonDocument>.Filter.Gt("_id", cursor);
-			var filter = Builders<BsonDocument>.Filter.And(gtId, BsonDocument.Parse(query.RootElement.GetRawText()));
-			var sort = Builders<BsonDocument>.Sort.Ascending("_id");
-			var data = await _db.GetCollection<BsonDocument>(collectionSlug).Find(filter).Sort(sort).Limit(limit).ToListAsync();
-			return Ok(CursorResult.FromCollection(data, limit, cursor));
+			var list = new List<FilterDefinition<BsonDocument>>();
+			list.Add(BsonDocument.Parse(query.RootElement.GetRawText()));
+			var data = await _db.GetCollection<BsonDocument>(collectionSlug).PaginateAsync(limit, cursorNext, cursorPrevious, list);
+			return Ok(data);
 		}
 
 		private async Task HandleContentFromFormFileAsync(ApiTemplate template, IFormFile templateFile)
@@ -278,9 +275,9 @@ namespace MongoDBSemesterProjekt.Controllers
 		[Permission("collections/list", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public Task<IActionResult> PaginateCollectionFormAsync([FromForm] ObjectId? cursor, [FromForm][Range(1, 50)] int limit = 20)
+		public Task<IActionResult> PaginateCollectionFormAsync([FromForm] ObjectId? cursorNext = null, [FromForm] ObjectId? cursorPrevious = null, [FromForm][Range(1, 100)] int limit = 20)
 		{
-			return PaginateCollectionAsync(cursor, limit);
+			return PaginateCollectionAsync(cursorNext, cursorPrevious, limit);
 		}
 
 
@@ -289,14 +286,10 @@ namespace MongoDBSemesterProjekt.Controllers
 		[Permission("collections/list")]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> PaginateCollectionAsync([FromQuery] ObjectId? cursor, [FromQuery][Range(1, 50)] int limit = 20)
-		{
-			var collections = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
-				.Find(x => cursor.HasValue == false || x.Id > cursor)
-				.Limit(limit)
-				.ToListAsync();
-
-			return Ok(CursorResult.FromCollection(collections, limit, cursor, _mapper.Map<ApiCollection>));
+		public async Task<IActionResult> PaginateCollectionAsync([FromQuery] ObjectId? cursorNext = null, [FromQuery]ObjectId? cursorPrevious = null, [FromQuery][Range(1, 100)] int limit = 20)
+		{	
+			var data = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiCollection>);
+			return Ok(data);
 		}
 
 		private static readonly BsonDocument OwnerField = new BsonDocument()

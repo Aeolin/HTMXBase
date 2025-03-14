@@ -32,28 +32,11 @@ namespace MongoDBSemesterProjekt.Controllers
 			_templateStore=templateStore;
 		}
 
-		private FilterDefinition<BsonDocument> BuildFilter(RouteTemplateModel template, Dictionary<string, object> filter, out ObjectId? nextCursor, out bool sortAscending)
+		private ICollection<FilterDefinition<BsonDocument>> BuildFilter(RouteTemplateModel template, Dictionary<string, object> filter)
 		{
 			var builder = Builders<BsonDocument>.Filter;
 			var filterList = new List<FilterDefinition<BsonDocument>>();
-			if (template.Paginate && filter.TryGetValue("cursorNext", out var cursorNext) && cursorNext != null && cursorNext is ObjectId cursorNextId)
-			{
-				sortAscending = true;
-				nextCursor = cursorNextId;
-				filterList.Add(builder.Gt("_id", cursorNextId));
-			}
-			else if (template.Paginate && filter.TryGetValue("cursorPrevious", out var cursorPrevious) && cursorPrevious != null && cursorPrevious is ObjectId cursorPreviousId)
-			{
-				sortAscending = false;
-				nextCursor = null;
-				filterList.Add(builder.Lte("_id", cursorPreviousId));
-			}
-			else
-			{
-				nextCursor = null;
-				sortAscending = true;
-			}
-
+			
 			foreach (var field in template.Fields)
 			{
 				if (filter.TryGetValue(field.ParameterName, out var value))
@@ -98,18 +81,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				}
 			}
 
-			if (filterList.Count == 0)
-			{
-				return builder.Empty;
-			}
-			else if (filterList.Count == 1)
-			{
-				return filterList.First();
-			}
-			else
-			{
-				return builder.And(filterList);
-			}
+			return filterList;
 		}
 
 		private static readonly SortDefinition<BsonDocument> SortByIdAsc = Builders<BsonDocument>.Sort.Ascending("_id");
@@ -228,8 +200,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				return NotFound();
 
 			var collection = _db.GetCollection<BsonDocument>(collectionMeta.Slug);
-			var filter = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues, out var cursor, out var sortAscending);
-			var query = collection.Find(filter);
+			var filters = BuildFilter(routeMatch.RouteTemplateModel, routeMatch.QueryValues);
 			object? data = null;
 			if (routeMatch.RouteTemplateModel.Paginate)
 			{
@@ -238,17 +209,15 @@ namespace MongoDBSemesterProjekt.Controllers
 
 				if (limit > 100 || limit < 1)
 					return BadRequest("Limit must be in range 1 to 100");
-					
-				query = query.Sort(sortAscending ? SortByIdAsc : SortByIdDesc).Limit(limit);	
-				var list = await query.ToListAsync(HttpContext.RequestAborted);
-				if (sortAscending == false)
-					list.Reverse();
 
-				data = CursorResult.FromCollection(list, limit, cursor, x => BsonSerializer.Deserialize<Dictionary<string, object>>(x));
+				ObjectId? nextCursor = (ObjectId?)routeMatch.QueryValues.GetValueOrDefault("cursorNext");
+				ObjectId? previousCursor = (ObjectId?)routeMatch.QueryValues.GetValueOrDefault("cursorPrevious");
+				data = await collection.PaginateAsync(limit, nextCursor, previousCursor, x => BsonSerializer.Deserialize<Dictionary<string, object?>>(x), filters);
 			}
 			else
 			{
-				var doc = await query.FirstOrDefaultAsync(HttpContext.RequestAborted);
+				var filter = Extensions.CombineFilters(null, filters);
+				var doc = await collection.Find(filter).FirstOrDefaultAsync(HttpContext.RequestAborted);
 				data = BsonSerializer.Deserialize<Dictionary<string, object>>(doc);
 			}
 
