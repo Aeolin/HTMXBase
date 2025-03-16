@@ -17,6 +17,8 @@ using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Text;
 using MongoDB.Bson.Serialization;
+using MongoDBSemesterProjekt.Services.ModelEvents;
+using System.Threading.Channels;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -25,11 +27,12 @@ namespace MongoDBSemesterProjekt.Controllers
 	[Authorize]
 	public class CollectionController : HtmxBaseController
 	{
-		private readonly IHtmxTemplateStore _templateStore;
 
-		public CollectionController(IMongoDatabase dataBase, IMapper mapper, IHtmxTemplateStore templateStore) : base(dataBase, mapper)
+		private readonly ChannelWriter<ModifyEvent<TemplateData>> _templateEvents;
+
+		public CollectionController(IMongoDatabase dataBase, IMapper mapper, ChannelWriter<ModifyEvent<TemplateData>> templateEvents) : base(dataBase, mapper)
 		{
-			_templateStore=templateStore;
+			_templateEvents=templateEvents;
 		}
 
 		[HttpPost("{collectionSlug}/paginate")]
@@ -181,7 +184,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NotFound("Collection not found");
 
-			_templateStore.NotifyTemplateChanged(ModifyMode.Add, collectionSlug, template.Slug);
+			await _templateEvents.WriteAsync(TemplateData.Create(collectionSlug, model));
 			return Ok(_mapper.Map<ApiTemplate>(collection.Templates.Last()));
 		}
 
@@ -200,11 +203,13 @@ namespace MongoDBSemesterProjekt.Controllers
 				template.ToUpdate(),
 				GetReturnUpdatedOptions<CollectionModel>());
 
+			var updated = collection?.Templates.FirstOrDefault(x => x.Slug == templateSlug);
+
 			if (collection == null)
 				return NotFound("Collection not found");
 
-			_templateStore.NotifyTemplateChanged(ModifyMode.Modify, collectionSlug, templateSlug);
-			return Ok(template);
+			await _templateEvents.WriteAsync(TemplateData.Update(collectionSlug, updated));
+			return Ok(_mapper.Map<ApiTemplate>(updated));
 		}
 
 		[HttpDelete("{collectionSlug}/templates/{templateSlug}")]
@@ -223,7 +228,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collection == null)
 				return NotFound("Collection not found");
 
-			_templateStore.NotifyTemplateChanged(ModifyMode.Delete, collectionSlug, templateSlug);
+			await _templateEvents.WriteAsync(TemplateData.Delete(collectionSlug, templateSlug));
 			return Ok();
 		}
 
@@ -255,7 +260,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (collectionModel == null)
 				return NotFound("Collection not found");
 
-			_templateStore.NotifyTemplateChanged(ModifyMode.Modify, collectionSlug);
+			await _templateEvents.WriteAsync(TemplateData.Update(collectionSlug));
 			return Ok(collection);
 		}
 
@@ -328,7 +333,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (result.DeletedCount == 0)
 				return NotFound("Collection either doesnt exist or is inbuilt");
 
-			_templateStore.NotifyTemplateChanged(ModifyMode.Delete, collectionSlug);
+			await _templateEvents.WriteAsync(TemplateData.Delete(collectionSlug));
 			await _db.DropCollectionAsync(collectionSlug);
 			return Ok();
 		}
@@ -390,7 +395,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			await collectionCollection.InsertOneAsync(model);
 
 			if (collection.Templates.Length > 0)
-				_templateStore.NotifyTemplateChanged(ModifyMode.Add, collection.Slug);
+				await _templateEvents.WriteAsync(TemplateData.Create(collection.Slug));
 
 			return Ok(_mapper.Map<ApiCollection>(model));
 		}

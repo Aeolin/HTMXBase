@@ -183,10 +183,10 @@ namespace MongoDBSemesterProjekt.Utils
 			foreach (var entityType in entityTypes)
 			{
 				var interceptor = typeof(EntityBaseUpdatingInterceptionFactory).GetMethod(nameof(EntityBaseUpdatingInterceptionFactory.Create)).MakeGenericMethod(entityType).Invoke(null, null);
-				services.AddSingleton(typeof(IInterceptionEvents<>).MakeGenericType(entityType), interceptor);
+				services.AddInterceptionEvents(interceptor);
 			}
 
-			services.AddSingleton(EntityBaseUpdatingInterceptionFactory.InterceptCustomCollections());
+			services.AddInterceptionEvents(EntityBaseUpdatingInterceptionFactory.InterceptCustomCollections());
 			return services;
 		}
 

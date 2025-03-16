@@ -25,6 +25,7 @@ using MongoDBSemesterProjekt.OutputFormatters;
 using MongoDBSemesterProjekt.Serializers;
 using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
+using MongoDBSemesterProjekt.Services.ModelEvents;
 using MongoDBSemesterProjekt.Services.ObjectCache;
 using MongoDBSemesterProjekt.Services.TemplateRouter;
 using MongoDBSemesterProjekt.Services.TemplateStore;
@@ -81,6 +82,8 @@ builder.Services.AddScoped<IMongoDatabaseSession>(x =>
 	return new MongoDatabaseSession(client, x, url.DatabaseName);
 });
 
+builder.Services.AddModelEventChannel<ModelData<RouteTemplateModel>>();
+builder.Services.AddModelEventChannel<TemplateData>();
 builder.Services.AddEntityUpdateInterceptors();
 builder.Services.Configure<InMemoryCacheConfig>(x =>
 {

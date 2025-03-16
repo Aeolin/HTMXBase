@@ -1,4 +1,4 @@
-﻿namespace MongoDBSemesterProjekt.Services.TemplateStore
+﻿namespace MongoDBSemesterProjekt.Services.ModelEvents
 {
 	public enum ModifyMode
 	{

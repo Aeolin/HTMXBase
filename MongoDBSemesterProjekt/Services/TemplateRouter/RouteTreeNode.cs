@@ -9,7 +9,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 		public RouteTemplateModel? RouteTemplate { get; set; }
 		public string? RouteParameterName { get; init; }
 
-		public bool Matches(ReadOnlySpan<char> path, Dictionary<string, string> routeValues)
+		public bool Matches(ReadOnlySpan<char> path, Dictionary<string, string?> routeValues)
 		{
 			if (Path == null) // wildcard
 			{

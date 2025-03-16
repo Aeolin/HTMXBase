@@ -12,6 +12,8 @@ using MongoDBSemesterProjekt.Utils;
 using System.ComponentModel.DataAnnotations;
 using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
 using MongoDB.Driver.Linq;
+using System.Threading.Channels;
+using MongoDBSemesterProjekt.Services.ModelEvents;
 
 namespace MongoDBSemesterProjekt.Controllers
 {
@@ -19,9 +21,11 @@ namespace MongoDBSemesterProjekt.Controllers
 	[Route("api/v1/routes")]
 	public class RouteController : HtmxBaseController
 	{
-		public RouteController(IMongoDatabase dataBase, IMapper mapper) : base(dataBase, mapper)
-		{
+		private readonly ChannelWriter<ModifyEvent<ModelData<RouteTemplateModel>>> _routeEvents;
 
+		public RouteController(IMongoDatabase dataBase, IMapper mapper, ChannelWriter<ModifyEvent<ModelData<RouteTemplateModel>>> routeEvents) : base(dataBase, mapper)
+		{
+			_routeEvents=routeEvents;
 		}
 
 		[HttpGet]
@@ -46,6 +50,7 @@ namespace MongoDBSemesterProjekt.Controllers
 
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			await collection.InsertOneAsync(model, null, HttpContext.RequestAborted);
+			await _routeEvents.WriteAsync(ModelData.Create(model));
 			return Ok(_mapper.Map<ApiRouteTemplate>(model));
 		}
 
@@ -62,6 +67,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (result == null)
 				return NotFound($"Either no route with id {id} exists or a field with ParameterName {field.ParameterName} already exists");
 
+			await _routeEvents.WriteAsync(ModelData.Update(result));
 			return Ok(_mapper.Map<ApiRouteTemplate>(result));
 		}
 
@@ -82,6 +88,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (result == null)
 				return NotFound($"Either no route with id {id} exists or a field with ParameterName {parameterName} does not exist");
 
+			await _routeEvents.WriteAsync(ModelData.Update(result));
 			return Ok(field);
 		}
 
@@ -92,14 +99,15 @@ namespace MongoDBSemesterProjekt.Controllers
 		public async Task<IActionResult> DeleteFieldAsync([FromRoute] ObjectId id, [FromRoute] string parameterName)
 		{
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
-			var result = await collection.UpdateOneAsync(x => x.Id == id,
+			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id,
 				Builders<RouteTemplateModel>.Update.PullFilter(x => x.Fields, x => x.ParameterName == parameterName),
 				cancellationToken: HttpContext.RequestAborted
 			);
 
-			if (result.MatchedCount == 0)
+			if (result == null)
 				return NotFound($"Either no route with id {id} exists or a field with ParameterName {parameterName} does not exist");
 
+			await _routeEvents.WriteAsync(ModelData.Update(result));
 			return NoContent();
 		}
 
@@ -120,6 +128,10 @@ namespace MongoDBSemesterProjekt.Controllers
 			}
 
 			var result = await collection.FindOneAndUpdateAsync(x => x.Id == id, update, options, HttpContext.RequestAborted);
+			if (result == null)
+				return NotFound();
+
+			await _routeEvents.WriteAsync(ModelData.Update(result));
 			return Ok(_mapper.Map<ApiRouteTemplate>(result));
 		}
 
@@ -134,6 +146,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			if (result.DeletedCount == 0)
 				return NotFound();
 
+			await _routeEvents.WriteAsync(ModelData.Delete<RouteTemplateModel>(id));
 			return NoContent();
 		}
 	}

@@ -4,30 +4,36 @@ using Microsoft.IdentityModel.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Database.Models;
+using MongoDBSemesterProjekt.Services.ModelEvents;
 using MongoDBSemesterProjekt.Utils;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 
 namespace MongoDBSemesterProjekt.Services.TemplateRouter
 {
 	public class InMemoryTemplateRouter : BackgroundService, ITemplateRouter
 	{
-		private readonly IMongoDatabase _db;
 		private readonly IMongoCollection<RouteTemplateModel> _routes;
-		private IChangeStreamCursor<ChangeStreamDocument<RouteTemplateModel>> _watch;
 		private readonly RouteTreeNode _routeTree = new RouteTreeNode(null, null);
+		private readonly Dictionary<ObjectId, RouteTemplateModel> _routeTempltes = new();
 		private readonly IServiceProvider _provider;
+		private readonly ChannelReader<ModifyEvent<ModelData<RouteTemplateModel>>> _eventsReader;
 		private readonly IServiceScope _scope;
 
-		public InMemoryTemplateRouter(IServiceProvider provider)
+		public InMemoryTemplateRouter(IServiceProvider provider, ChannelReader<ModifyEvent<ModelData<RouteTemplateModel>>> eventsReader)
 		{
 			_scope = provider.CreateScope();
 			_provider = _scope.ServiceProvider;
-			_db=_provider.GetRequiredService<IMongoDatabase>();
-			_routes =_db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
+			var db =_provider.GetRequiredService<IMongoDatabase>();
+			_routes = db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
+			_eventsReader=eventsReader;
 		}
 
-		private void RemoveFromTree(RouteTemplateModel routeTemplateModel)
+		private void RemoveFromTree(ObjectId id)
 		{
+			if(_routeTempltes.TryGetValue(id, out var routeTemplateModel) == false)
+				return;
+
 			var path = routeTemplateModel.UrlTemplate.Split("/");
 			var current = _routeTree;
 			foreach (var part in path)
@@ -44,8 +50,11 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				current.RouteTemplate = null;
 		}
 
-		private void InsertIntoTree(RouteTemplateModel routeTemplateModel)
+		private void InsertIntoTree(RouteTemplateModel? routeTemplateModel)
 		{
+			if(routeTemplateModel == null)
+				return;
+
 			var path = routeTemplateModel.UrlTemplate.Split("/", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 			var current = _routeTree;
 			foreach (var part in path)
@@ -69,18 +78,17 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 			}
 
 			current.RouteTemplate = routeTemplateModel;
+			_routeTempltes[routeTemplateModel.Id] = routeTemplateModel;
 		}
 
 		public override async Task StartAsync(CancellationToken cancellationToken)
 		{
 			await _routes.Find(FilterDefinition<RouteTemplateModel>.Empty).ForEachAsync(InsertIntoTree, cancellationToken);
-			//_watch = await _routes.WatchAsync();
 			await base.StartAsync(cancellationToken);
 		}
 
 		public override async Task StopAsync(CancellationToken cancellationToken)
 		{
-			_watch?.Dispose();
 			_scope.Dispose();
 			await base.StopAsync(cancellationToken);
 		}
@@ -159,6 +167,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				var routeValues = context.Request.Query.ToDictionary(x => x.Key, x => x.Value.First());
 				queue.Enqueue(_routeTree);
 
+
 				while (path.Length > 0)
 				{
 					index = path.IndexOf('/');
@@ -189,21 +198,30 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			// await _watch.ForEachAsync(ProcessChange, stoppingToken);
+			while (await _eventsReader.WaitToReadAsync(stoppingToken))
+			{
+				while (_eventsReader.TryRead(out var modelEvent))
+				{
+					ProcessChange(modelEvent);
+				}
+			}
 		}
 
-		private void ProcessChange(ChangeStreamDocument<RouteTemplateModel> change)
+		private void ProcessChange(ModifyEvent<ModelData<RouteTemplateModel>> change)
 		{
-			switch (change.OperationType)
+			switch (change.Mode)
 			{
-				case ChangeStreamOperationType.Insert:
-					InsertIntoTree(change.FullDocument);
+				case ModifyMode.Add:
+					InsertIntoTree(change.Item.Model);
 					break;
-				case ChangeStreamOperationType.Update:
-					RemoveFromTree(change.FullDocumentBeforeChange);
-					InsertIntoTree(change.FullDocument);
+
+				case ModifyMode.Modify:
+					RemoveFromTree(change.Item.ModelId);
+					InsertIntoTree(change.Item.Model);
 					break;
-				case ChangeStreamOperationType.Delete:
-					RemoveFromTree(change.FullDocumentBeforeChange);
+
+				case ModifyMode.Delete:
+					RemoveFromTree(change.Item.ModelId);
 					break;
 			}
 		}
