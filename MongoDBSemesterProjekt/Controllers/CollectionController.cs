@@ -50,12 +50,26 @@ namespace MongoDBSemesterProjekt.Controllers
 		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		public async Task<IActionResult> PaginateAsync(string collectionSlug, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorPrevious = null, [FromQuery] ObjectId? cursorNext = null)
 		{
+			var id = User?.GetIdentifierId();
 			var permissions = User.GetPermissions();
-			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.QueryPermission == null || permissions.Contains(x.QueryPermission))).FirstOrDefaultAsync();
+			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false).FirstOrDefaultAsync();
 			if (collection == null)
-				return NoPermission("No permission to access collection");
+				return NoPermission("No permission to access collection");		
 
-			var data = await _db.GetCollection<BsonDocument>(collectionSlug).PaginateAsync(limit, cursorNext, cursorPrevious);
+			var filterList = new List<FilterDefinition<BsonDocument>>();
+			if(collection.QueryPermission != null && permissions.Contains(collection.QueryPermission) == false)
+			{
+				if (id.HasValue)
+				{
+					filterList.Add(Builders<BsonDocument>.Filter.Eq(Constants.OWNER_ID_FIELD, id.Value));
+				}
+				else
+				{
+				return NoPermission("No permission to access collection");
+				}
+			}
+
+			var data = await _db.GetCollection<BsonDocument>(collectionSlug).PaginateAsync(limit, cursorNext, cursorPrevious, filterList);
 			return Ok(data);
 		}
 
@@ -149,13 +163,26 @@ namespace MongoDBSemesterProjekt.Controllers
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
 		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromJsonOrForm] JsonDocument query, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorNext = null, [FromQuery] ObjectId? cursorPrevious = null)
 		{
-			var permissions = User.GetPermissions();
-			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.ComplexQueryPermission == null || permissions.Contains(x.ComplexQueryPermission))).FirstOrDefaultAsync();
+			var id = User?.GetIdentifierId();
+			var permissions = User?.GetPermissions();
+			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false).FirstOrDefaultAsync();
 			if (collection == null)
 				return NoPermission("No permission to query collection");
 
 			var list = new List<FilterDefinition<BsonDocument>>();
 			list.Add(BsonDocument.Parse(query.RootElement.GetRawText()));
+			if (collection.QueryPermission != null && (permissions?.Contains(collection.ComplexQueryPermission) ?? false) == false)
+			{
+				if (id.HasValue)
+				{
+					list.Add(Builders<BsonDocument>.Filter.Eq(Constants.OWNER_ID_FIELD, id.Value));
+				}
+				else
+				{
+					return NoPermission("No permission to access collection");
+				}
+			}
+
 			var data = await _db.GetCollection<BsonDocument>(collectionSlug).PaginateAsync(limit, cursorNext, cursorPrevious, list);
 			return Ok(data);
 		}
