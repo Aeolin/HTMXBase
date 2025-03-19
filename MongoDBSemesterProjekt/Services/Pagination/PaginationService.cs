@@ -44,7 +44,9 @@ namespace MongoDBSemesterProjekt.Services.Pagination
 
 		private static FilterDefinition<T>? BuildFilter(PaginationValues values, PaginationCollectionMeta meta, PaginationDirection direction, string propertyName, string propertyValue)
 		{
-			if (values.Columns.Contains(propertyName) && meta.TryGetPropertyType(propertyName, out var type) && BsonHelper.TryParseFromBsonType(type, propertyValue, out var parsed))
+			if (values.Columns.Contains(propertyName) &&
+				meta.TryGetPropertyType(propertyName, out var type) && 
+				BsonHelper.TryParseFromBsonType(type, propertyValue, out var parsed, BsonHelper.ParseDateTimeTicks))
 			{
 				var builder = Builders<T>.Filter;
 				return (direction == PaginationDirection.Backward) ^ values.Ascending ? builder.Gt(propertyName, parsed) : builder.Lte(propertyName, parsed);
@@ -145,6 +147,9 @@ namespace MongoDBSemesterProjekt.Services.Pagination
 			if (doc.TryGetValue(column, out var value))
 			{
 				var obj = value.ToObject();
+				if (obj is DateTime dt)
+					return $"{column}={dt.Ticks}";
+
 				if (obj != null)
 					return $"{column}={HttpUtility.UrlEncode(obj.ToString())}";
 			}
