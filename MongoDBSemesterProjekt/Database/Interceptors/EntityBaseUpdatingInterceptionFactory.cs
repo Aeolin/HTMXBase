@@ -2,8 +2,9 @@
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Database.InterceptingShim;
 using MongoDBSemesterProjekt.Database.Models;
+using MongoDBSemesterProjekt.Utils;
 
-namespace MongoDBSemesterProjekt.Utils
+namespace MongoDBSemesterProjekt.Database.Interceptors
 {
 	public static class EntityBaseUpdatingInterceptionFactory
 	{

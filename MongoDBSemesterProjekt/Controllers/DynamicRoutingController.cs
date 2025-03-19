@@ -84,9 +84,6 @@ namespace MongoDBSemesterProjekt.Controllers
 			return filterList;
 		}
 
-		private static readonly SortDefinition<BsonDocument> SortByIdAsc = Builders<BsonDocument>.Sort.Ascending("_id");
-		private static readonly SortDefinition<BsonDocument> SortByIdDesc = Builders<BsonDocument>.Sort.Descending("_id");
-
 		private async Task<string?> GetStaticTemplateAsync(RouteTemplateModel template)
 		{
 			if (string.IsNullOrEmpty(template.StaticTemplate))

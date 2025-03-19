@@ -81,6 +81,8 @@ namespace MongoDBSemesterProjekt.Database
 			await CreateCollectionWithSchemaAsync_Impl<T>(database, name);
 		}
 
+		public static IMongoCollection<T> GetCollection<T>(this IMongoDatabase db) => db.GetCollection<T>(db.GetCollectionName<T>());
+
 		public static string GetCollectionName<T>(this IMongoDatabase database)
 		{
 			var type = typeof(T);

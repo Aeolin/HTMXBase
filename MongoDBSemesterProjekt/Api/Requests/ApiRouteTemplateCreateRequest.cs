@@ -13,6 +13,10 @@ namespace MongoDBSemesterProjekt.Api.Requests
 		public string? RedirectUrl { get; set; }
 		public string? VirtualPathTemplate { get; set; }
 		public bool Paginate { get; set; }
+		public int? PaginationLimit;
+		public string[]? PaginationColumns { get; set; }
+		public bool? PaginateAscending;
+
 		public ApiFieldMatchModel[]? Fields { get; set; }
 	}
 }

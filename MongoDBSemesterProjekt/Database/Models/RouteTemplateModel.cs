@@ -23,6 +23,10 @@ namespace MongoDBSemesterProjekt.Database.Models
 		public string? TemplateSlug { get; set; }
 		public string? StaticTemplate { get; set; }
 		public bool Paginate { get; set; }
+		public int PaginationLimit { get; set; }
+		public string[]? PaginationColumns { get; set; } 
+		public bool PaginateAscending { get; set; }
+
 		public FieldMatchModel[]? Fields { get; set; }
 
 		[BsonIgnore]
@@ -31,6 +35,6 @@ namespace MongoDBSemesterProjekt.Database.Models
 
 		[BsonIgnore]
 		[JsonIgnore]
-		public bool IsRedirect => string.IsNullOrEmpty(RedirectUrl) == false;	
+		public bool IsRedirect => string.IsNullOrEmpty(RedirectUrl) == false;
 	}
 }

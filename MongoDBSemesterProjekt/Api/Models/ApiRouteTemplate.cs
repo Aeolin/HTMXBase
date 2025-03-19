@@ -19,7 +19,11 @@ namespace MongoDBSemesterProjekt.Api.Models
 		public string? RedirectUrl { get; set; }
 		public string? VirtualPathTemplate { get; set; }
 		public bool Paginate { get; set; }
+		public int PaginationLimit { get; set; }
+		public bool PaginateAscending { get; set; }
 
+		[UpdateProperty(CollectionHandling = CollectionHandling.Set)]
+		public string[]? PaginationColumns { get; set; }
 
 		[UpdatePropertyIgnore]
 		public ApiFieldMatchModel[]? Fields { get; set; }
