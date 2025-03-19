@@ -3,6 +3,7 @@
 	public enum PaginationDirection
 	{
 		Forward,
-		Backward
+		Backward,
+		Default
 	}
 }

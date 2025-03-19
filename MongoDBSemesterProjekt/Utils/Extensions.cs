@@ -65,6 +65,34 @@ namespace MongoDBSemesterProjekt.Utils
 			return false;
 		}
 
+		public static object? ToObject(this BsonValue value)
+		{
+			return value.BsonType switch
+			{
+				BsonType.Null => null,
+				BsonType.Double => value.AsDouble,
+				BsonType.String => value.AsString,
+				BsonType.Document => value.AsBsonDocument,
+				BsonType.Array => value.AsBsonArray,
+				BsonType.Binary => value.AsByteArray,
+				BsonType.Undefined => null,
+				BsonType.ObjectId => value.AsObjectId,
+				BsonType.Boolean => value.AsBoolean,
+				BsonType.DateTime => value.ToUniversalTime(),
+				BsonType.RegularExpression => value.AsBsonRegularExpression,
+				BsonType.JavaScript => value.AsBsonJavaScript,
+				BsonType.JavaScriptWithScope => value.AsBsonJavaScriptWithScope,
+				BsonType.Symbol => value.AsBsonSymbol,
+				BsonType.Int32 => value.AsInt32,
+				BsonType.Timestamp => value.AsBsonTimestamp,
+				BsonType.Int64 => value.AsInt64,
+				BsonType.Decimal128 => value.AsDecimal128,
+				BsonType.MinKey => value.AsBsonMinKey,
+				BsonType.MaxKey => value.AsBsonMaxKey,
+				_ => null
+			};
+		}
+
 		public delegate bool TryParseDelegate<T>(string input, out T result);
 		public static TryParseDelegate<T>? GetTryParse<T>()
 		{
@@ -76,7 +104,7 @@ namespace MongoDBSemesterProjekt.Utils
 			return tryParseMethod.CreateDelegate<TryParseDelegate<T>>();
 		}
 
-		public static V GetParsedValueOrDefault<V>(this IDictionary<string, object?> dict, string key, V defaultValue) => dict.GetParsedValueOrDefault(key, defaultValue);
+		public static V GetParsedValueOrDefault<V>(this IDictionary<string, object?> dict, string key, V defaultValue) => GetParsedValueOrDefault<string, V>(dict, key, defaultValue);
 		public static V GetParsedValueOrDefault<K, V>(this IDictionary<K, object?> dict, K key, V defaultValue)
 		{
 			if (dict.TryGetValue(key, out var value))
@@ -143,7 +171,7 @@ namespace MongoDBSemesterProjekt.Utils
 			}
 		}
 
-		public static FilterDefinition<TItem> ReduceAnd<TItem>(this IEnumerable<FilterDefinition<TItem>> filters)
+		public static FilterDefinition<TItem> CombineWithAnd<TItem>(this IEnumerable<FilterDefinition<TItem>> filters)
 		{
 			var count = filters?.Count() ?? 0;
 			if (count == 0)

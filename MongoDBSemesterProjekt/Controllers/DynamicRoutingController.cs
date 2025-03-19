@@ -7,6 +7,7 @@ using MongoDB.Driver;
 using MongoDBSemesterProjekt.ApiModels;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Services.FileStorage;
+using MongoDBSemesterProjekt.Services.Pagination;
 using MongoDBSemesterProjekt.Services.TemplateRouter;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
@@ -24,19 +25,24 @@ namespace MongoDBSemesterProjekt.Controllers
 		private readonly IFileStorage _fileStore;
 		private readonly ITemplateRouter _router;
 		private readonly IHtmxTemplateStore _templateStore;
+		private readonly IPaginationService<BsonDocument> _pagination;
 
-		public DynamicRoutingController(IMongoDatabase dataBase, IMapper mapper, IFileStorage fileStore, ITemplateRouter router, IHtmxTemplateStore templateStore) : base(dataBase, mapper)
+		public DynamicRoutingController(IMongoDatabase dataBase, IMapper mapper, IFileStorage fileStore, ITemplateRouter router, IHtmxTemplateStore templateStore, IPaginationService<BsonDocument> pagination) : base(dataBase, mapper)
 		{
 			_fileStore=fileStore;
 			_router=router;
 			_templateStore=templateStore;
+			_pagination=pagination;
 		}
 
-		private ICollection<FilterDefinition<BsonDocument>> BuildFilter(RouteTemplateModel template, Dictionary<string, object> filter)
+		private ICollection<FilterDefinition<BsonDocument>> BuildFilter(RouteTemplateModel template, Dictionary<string, object?> filter)
 		{
 			var builder = Builders<BsonDocument>.Filter;
 			var filterList = new List<FilterDefinition<BsonDocument>>();
-			
+
+			if (template.Fields == null)
+				return filterList;
+
 			foreach (var field in template.Fields)
 			{
 				if (filter.TryGetValue(field.ParameterName, out var value))
@@ -107,7 +113,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			return await reader.ReadToEndAsync();
 		}
 
-		private IFindFluent<StaticContentModel, StaticContentModel> FindByPath(string path)
+		private IFindFluent<StaticContentModel, StaticContentModel> FindByPath(string? path)
 		{
 			var contentCollection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
 			if(string.IsNullOrEmpty(path))
@@ -119,8 +125,8 @@ namespace MongoDBSemesterProjekt.Controllers
 			return contentCollection.Find(x => x.Slug == slug && x.VirtualPath == virtualPath);
 		}
 
-		private async Task<IActionResult> HandleFile(string path, ObjectId? ownerId, FrozenSet<string> permissions, string? staticTemplate = null)
-		{
+		private async Task<IActionResult> HandleFile(string? path, ObjectId? ownerId, FrozenSet<string>? permissions, string? staticTemplate = null)
+		{	
 			var file = await FindByPath(path).FirstOrDefaultAsync(HttpContext.RequestAborted);
 			if (file == null)
 				return null;
@@ -201,15 +207,8 @@ namespace MongoDBSemesterProjekt.Controllers
 			object? data = null;
 			if (routeMatch.RouteTemplateModel.Paginate)
 			{
-				if (routeMatch.QueryValues.TryGetValue("limit", out var limitObj) == false || limitObj is not int limit)
-					limit = 20;
-
-				if (limit > 100 || limit < 1)
-					return BadRequest("Limit must be in range 1 to 100");
-
-				ObjectId? nextCursor = (ObjectId?)routeMatch.QueryValues.GetValueOrDefault("cursorNext");
-				ObjectId? previousCursor = (ObjectId?)routeMatch.QueryValues.GetValueOrDefault("cursorPrevious");
-				data = await collection.PaginateAsync(limit, nextCursor, previousCursor, x => BsonSerializer.Deserialize<Dictionary<string, object?>>(x), filters);
+				var values = PaginationValues.FromRouteMatch(routeMatch);
+				data = await _pagination.PaginateAsync(collectionMeta.Slug, values, x => BsonSerializer.Deserialize<Dictionary<string, object?>>(x), filters);
 			}
 			else
 			{

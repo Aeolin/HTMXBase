@@ -20,9 +20,9 @@ namespace MongoDBSemesterProjekt.Services.Pagination
 				foreach (var property in propertyDoc.EnumerateObject())
 				{
 					var name = string.IsNullOrEmpty(path) ? property.Name : $"{path}.{property.Name}";
-					if (property.Value.TryGetProperty("bsonType", out var bsonTypeElement) && bsonTypeElement.ValueKind == JsonValueKind.Number)
+					if (property.Value.TryGetProperty("bsonType", out var bsonTypeElement) && bsonTypeElement.ValueKind == JsonValueKind.String)
 					{
-						var bsonType = (BsonType)bsonTypeElement.GetInt32();
+						var bsonType = BsonHelper.FromBsonTypeName(bsonTypeElement.GetString()!);
 						types[name] = bsonType;
 						if (bsonType == BsonType.Document)
 						{

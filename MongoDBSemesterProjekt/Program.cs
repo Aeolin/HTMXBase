@@ -18,6 +18,7 @@ using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.Authorization;
 using MongoDBSemesterProjekt.Database;
 using MongoDBSemesterProjekt.Database.InterceptingShim;
+using MongoDBSemesterProjekt.Database.Interceptors;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Database.Session;
 using MongoDBSemesterProjekt.Middleware;
@@ -27,6 +28,7 @@ using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ModelEvents;
 using MongoDBSemesterProjekt.Services.ObjectCache;
+using MongoDBSemesterProjekt.Services.Pagination;
 using MongoDBSemesterProjekt.Services.TemplateRouter;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
@@ -74,14 +76,7 @@ builder.Services.AddScoped<IMongoDatabase>(x =>
 	return new InterceptingDatabaseShim(client.GetDatabase(url.DatabaseName), x);
 });
 
-builder.Services.AddScoped<IMongoDatabaseSession>(x =>
-{
-	var client = x.GetRequiredService<IMongoClient>();
-	var config = x.GetRequiredService<IConfiguration>();
-	var url = new MongoUrl(config.GetConnectionString("MongoDB"));
-	return new MongoDatabaseSession(client, x, url.DatabaseName);
-});
-
+builder.Services.AddScoped<IPaginationService<BsonDocument>, PaginationService<BsonDocument>>();
 builder.Services.AddModelEventChannel<ModelData<RouteTemplateModel>>();
 builder.Services.AddModelEventChannel<TemplateData>();
 builder.Services.AddEntityUpdateInterceptors();

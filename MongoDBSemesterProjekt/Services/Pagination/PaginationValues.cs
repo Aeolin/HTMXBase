@@ -21,8 +21,8 @@ namespace MongoDBSemesterProjekt.Services.Pagination
 		public IEnumerable<string> Columns { get; init; }
 
 		public const string LIMIT_KEY = "limit";
-		public const string CURSOR_PREV_KEY = "prev";
-		public const string CURSOR_NEXT_KEY = "next";
+		public const string CURSOR_PREV_KEY = "cursorPrevious";
+		public const string CURSOR_NEXT_KEY = "cursorNext";
 		public const string ASCENDING_KEY = "asc";
 		public const string COLUMNS_KEY = "orderBy";
 		public static readonly FrozenSet<string> PAGINATION_VALUES = [LIMIT_KEY, CURSOR_PREV_KEY, CURSOR_NEXT_KEY, ASCENDING_KEY, COLUMNS_KEY];
