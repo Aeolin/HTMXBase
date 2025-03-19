@@ -27,40 +27,6 @@ namespace MongoDBSemesterProjekt.Services.Pagination
 		public const string COLUMNS_KEY = "orderBy";
 		public static readonly FrozenSet<string> PAGINATION_VALUES = [LIMIT_KEY, CURSOR_PREV_KEY, CURSOR_NEXT_KEY, ASCENDING_KEY, COLUMNS_KEY];
 
-		public PaginationDirection DecomposeCursor(out Dictionary<string, string>? cursorBody)
-		{
-			var cursor = "{}";
-			var direction = PaginationDirection.Forward;
-			if (string.IsNullOrEmpty(CursorPrevious) == false)
-			{
-				direction = PaginationDirection.Backward;
-				cursor = CursorPrevious;
-			}
-
-			if (string.IsNullOrEmpty(CursorNext) == false)
-			{
-				direction = PaginationDirection.Forward;
-				cursor = CursorNext;
-			}
-
-			unsafe
-			{
-				var byteLen = Encoding.UTF8.GetByteCount(cursor);
-				Span<byte> buffer = stackalloc byte[Base64.GetMaxDecodedFromUtf8Length(byteLen)];
-				Encoding.UTF8.GetBytes(cursor, buffer);
-				if (Base64.DecodeFromUtf8InPlace(buffer, out var written) == OperationStatus.Done)
-				{
-					cursorBody = JsonSerializer.Deserialize<Dictionary<string, string>>(buffer.Slice(written));
-				}
-				else
-				{
-					cursorBody = null;
-				}
-			}
-
-			return direction;
-		}
-
 		public PaginationValues(string? cursorNext, string? cursorPrev, int limit, bool ascending, IEnumerable<string> columns)
 		{
 			CursorNext = cursorNext;
