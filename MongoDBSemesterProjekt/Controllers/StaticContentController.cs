@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.Authorization;
+using MongoDBSemesterProjekt.Database;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Utils;
@@ -28,6 +30,51 @@ namespace MongoDBSemesterProjekt.Controllers
 			_fileStore=fileStore;
 		}
 
+		[HttpGet("dir")]
+		[ProducesResponseType(typeof(string[]), StatusCodes.Status200OK)]
+		[Permission("files/read", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
+		public async Task<IActionResult> GetDirectoryAsync([FromQuery] string? path = null)
+		{
+			path ??= string.Empty;
+			if(path.EndsWith('/') == false)
+				path+='/';
+
+			var escaped = path.Replace("/", "\\/");
+			var startsWith = Builders<StaticContentModel>.Filter.Regex(x => x.VirtualPath, new BsonRegularExpression($@"^{escaped}(([^\/]+$)|([^\/]+\/([^\/]+$)))"));
+			var files = await _db.GetCollection<StaticContentModel>().Find(startsWith).ToListAsync();
+			var list = new List<ApiFile>();
+			var dirSet = new HashSet<string>();
+
+			foreach (var file in files)
+			{
+				var vpath = file.VirtualPath ?? string.Empty;
+				var nextDir = vpath.IndexOf('/', path.Length + 1);
+				if (nextDir == -1)
+				{
+					list.Add(new ApiFile
+					{
+						Name = vpath.Substring(path.Length),
+						MimeType = file.MimeType,
+						Type = ApiFileType.File
+					});
+				}
+				else
+				{
+					var dir = vpath.Substring(path.Length, nextDir - path.Length);
+					if (dirSet.Add(dir))
+					{
+						list.Add(new ApiFile
+						{
+							Name = dir,
+							Type = ApiFileType.Directory
+						});
+					}		
+				}
+			}
+
+			return Ok();
+		}
+
 		[HttpPost]
 		[ProducesResponseType<string>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -46,7 +93,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				MimeType = file.ContentType,
 				Name = file.FileName,
 				StorageId = path,
-				VirtualPath = virtualPath,
+				VirtualPath = virtualPath ?? "/",
 				Slug = slug,
 				DeletePermission = deletePermission,
 				ReadPermission = readPermission

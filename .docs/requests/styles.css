@@ -73,6 +73,25 @@ input[type="text"] {
     border: 1px solid var(--background-secondary);
     margin-bottom: 1em;
     outline: none !important;
+    height: 3em;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: .5;
+    align-items: center;
+    width: 100%;
+}
+
+.login-form input {
+    width: 50%;
+    padding: 0.5em;
+    border-radius: 0;
+    border: 1px solid var(--background-secondary);
+    margin-bottom: 1em;
+    outline: none !important;
+    height: 3em;
 }
 
 input:focus {
@@ -86,6 +105,7 @@ textarea {
     border: 1px solid var(--background-secondary);
     margin-bottom: 1em;
     outline: none !important;
+    font-size: large;
 }
 
 textarea:focus {
@@ -97,7 +117,6 @@ textarea:focus {
 .create-post-form .content-group {
     field-sizing: content;
     width: 100%;
-    max-height: 40em;
 }
 
 .create-post-form #summary {
@@ -244,6 +263,19 @@ textarea:focus {
     height: 100%;
 }
 
+.nav-welcome {
+    padding: 1em;
+    background-color: var(--accent);
+    font-family: monospace;
+    color: var(--background-secondary);
+    transition: all 0.15s ease-in-out;
+    align-self: stretch;
+    display: flex;
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+}
+
 .nav-item {
     padding: 1em;
     background-color: var(--foreground-seconday);
@@ -252,7 +284,7 @@ textarea:focus {
     transition: all 0.15s ease-in-out;
     align-self: stretch;
     display: flex;
-    flex: 1;
+    flex-grow: 1;
     justify-content: center;
     align-items: center;
 }

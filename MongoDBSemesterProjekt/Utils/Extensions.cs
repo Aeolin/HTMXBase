@@ -149,6 +149,21 @@ namespace MongoDBSemesterProjekt.Utils
 			return null;
 		}
 
+		public static IFindFluent<StaticContentModel, StaticContentModel> FindByPath(this IMongoCollection<StaticContentModel> contentCollection, string? path)
+		{
+			if (ObjectId.TryParse(path, out var objId))
+				return contentCollection.Find(x => x.Id == objId);
+
+			if (string.IsNullOrEmpty(path))
+				return contentCollection.Find(x => (x.Slug == null || x.Slug == "") && (x.VirtualPath == null || x.VirtualPath == ""));
+
+			var lastSlash = path.LastIndexOf('/');
+			var slug = path.Substring(lastSlash + 1);
+			var virtualPath = lastSlash == -1 ? null : path.Substring(0, lastSlash);
+			return contentCollection.Find(x => x.Slug == slug && x.VirtualPath == virtualPath);
+		}
+
+
 		public static async Task<ObjectIdCursorResult<TTarget>> PaginateAsync<TItem, TTarget>(this IMongoCollection<TItem> collection, int limit, ObjectId? next, ObjectId? previous, Expression<Func<TItem, object>> exp, Func<TItem, TTarget> map, Func<TItem, ObjectId>? idGetter = null)
 		{
 			if (next.HasValue)

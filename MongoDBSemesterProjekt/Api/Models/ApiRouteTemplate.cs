@@ -3,6 +3,7 @@ using AutoMapper.Configuration.Annotations;
 using AwosFramework.Generators.MongoDBUpdateGenerator;
 using MongoDB.Bson;
 using MongoDBSemesterProjekt.Database.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace MongoDBSemesterProjekt.Api.Models
 {
@@ -19,8 +20,11 @@ namespace MongoDBSemesterProjekt.Api.Models
 		public string? RedirectUrl { get; set; }
 		public string? VirtualPathTemplate { get; set; }
 		public bool Paginate { get; set; }
+
+		[Range(1, 250)]
 		public int PaginationLimit { get; set; }
-		public bool PaginateAscending { get; set; }
+
+		public bool PaginateAscending { get; set; } = true;
 
 		[UpdateProperty(CollectionHandling = CollectionHandling.Set)]
 		public string[]? PaginationColumns { get; set; }

@@ -28,14 +28,12 @@
     let title = document.getElementById('title');
     let slug = document.getElementById('slug');
     title.oninput = function () {
-        slug.value = title.value.toLowerCase().replace(' ', '-').substring(0, 256);
+        slug.value = encodeURIComponent(title.value.toLowerCase().replaceAll(' ', '-')).substring(0, 256);
     }
 
     let form = document.getElementById('create-post-form');
     slug.oninput = function () {
-        if (slug.value.includes(' ')) {
-            slug.value = slug.value.replace(' ', '-');
-        }
+        slug.value = encodeURIComponent(decodeURIComponent(slug.value.toLowerCase().replaceAll(' ', '-'))).substring(0, 256);
     }
 
     form.onsubmit = function (e) {

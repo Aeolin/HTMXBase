@@ -16,5 +16,6 @@ namespace MongoDBSemesterProjekt.Database.Models
 		public BsonType BsonType { get; set; }
 		public bool IsOptional { get; set; }
 		public bool IsNullable { get; set; }
+		public bool UrlEncode { get; set; }
 	}
 }

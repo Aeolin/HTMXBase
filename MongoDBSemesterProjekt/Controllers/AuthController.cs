@@ -114,6 +114,13 @@ namespace MongoDBSemesterProjekt.Controllers
 			}
 		}
 
+		[HttpGet("logout")]
+		public IActionResult LogoutAsync()
+		{
+			HttpContext.Response.Cookies.Delete("jwt");
+			return Ok();
+		}
+
 
 		[HttpPost("refresh-token")]
 		public async Task<IActionResult> RefreshTokenAsync([FromQuery] bool useCookie = false)
@@ -123,7 +130,7 @@ namespace MongoDBSemesterProjekt.Controllers
 				.Find(Builders<UserModel>.Filter.Eq("_id", id))
 				.FirstOrDefaultAsync();
 
-			if(user == null || user.IsLockoutEnabled)
+			if (user == null || user.IsLockoutEnabled)
 				return Unauthorized();
 
 			var identity = await _jwtService.BuildIdentityAsync(user);

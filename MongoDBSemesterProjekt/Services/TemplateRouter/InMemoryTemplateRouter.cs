@@ -10,6 +10,7 @@ using MongoDBSemesterProjekt.Services.Pagination;
 using MongoDBSemesterProjekt.Utils;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using System.Web;
 
 namespace MongoDBSemesterProjekt.Services.TemplateRouter
 {
@@ -128,6 +129,9 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 						match = null;
 						return false;
 					}
+
+					if(value is string stringValue && field.UrlEncode)
+						value = HttpUtility.UrlEncode(stringValue);
 
 					parsed[field.ParameterName] = value;
 				}

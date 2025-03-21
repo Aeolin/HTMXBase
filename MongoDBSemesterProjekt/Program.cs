@@ -65,7 +65,7 @@ builder.Services.AddControllers(opts =>
 });
 
 builder.Services.Configure<FlatFileStorageConfig>(config.GetSection("FlatFileStorage"));
-builder.Services.AddScoped<IFileStorage, FlatFileStorage>();
+builder.Services.AddSingleton<IFileStorage, FlatFileStorage>();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMongoClient>(x => new MongoClient(x.GetRequiredService<IConfiguration>().GetConnectionString("MongoDB")));
 builder.Services.AddScoped<IMongoDatabase>(x =>
@@ -88,7 +88,11 @@ builder.Services.Configure<InMemoryCacheConfig>(x =>
 
 builder.Services.AddSingleton<IInMemoryCache<string, HandlebarsTemplate<object, object>>, InMemoryCache<string, HandlebarsTemplate<object, object>>>();
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IHtmxTemplateStore, HtmxTemplateStore>();
+
+builder.Services.AddSingleton<HtmxTemplateStore>();
+builder.Services.AddSingleton<IHtmxTemplateStore>(x => x.GetRequiredService<HtmxTemplateStore>());
+builder.Services.AddSingleton<IHostedService>(x => x.GetRequiredService<HtmxTemplateStore>());
+
 builder.Services.AddEndpointsApiExplorer();
 var jwtConfig = config.GetSection("JwtOptions").Get<JwtOptions>();
 if (jwtConfig == null)
