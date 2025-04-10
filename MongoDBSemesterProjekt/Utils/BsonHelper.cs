@@ -1,16 +1,52 @@
-﻿using MongoDB.Bson;
+﻿using Markdig.Parsers;
+using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
 using Namotion.Reflection;
 using Newtonsoft.Json.Serialization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using static MongoDB.Driver.WriteConcern;
+using static MongoDBSemesterProjekt.Utils.Extensions;
 
 namespace MongoDBSemesterProjekt.Utils
 {
 	public static class BsonHelper
 	{
-		public static bool TryParseFromBsonType(BsonType type, string rawValue, out object? value)
+		public static TryParseDelegate<DateTime> ParseDateTimeDetect = ParseDateTimeDetectImpl;
+		public static TryParseDelegate<DateTime> ParseDateTimeTicks = ParseDateTimeTicksImpl;
+		public static TryParseDelegate<DateTime> ParseDateTimeNormal = DateTime.TryParse;
+
+		private static bool ParseDateTimeTicksImpl(string value, out DateTime dt)
 		{
+			if (long.TryParse(value, out var ticks))
+			{
+				dt = new DateTime(ticks);
+				return true;
+			}
+
+			dt = default;
+			return false;
+		}
+
+		private static bool ParseDateTimeDetectImpl(string value, out DateTime dt)
+		{
+			if (DateTime.TryParse(value, out dt))
+				return true;
+			
+			if(long.TryParse(value, out var ticks))
+			{
+				dt = new DateTime(ticks);
+				return true;
+			}
+
+			dt = default;
+			return false;
+		}
+
+
+
+		public static bool TryParseFromBsonType(BsonType type, string rawValue, out object? value, TryParseDelegate<DateTime> dtParser = null)
+		{
+			dtParser ??= ParseDateTimeDetect;
 			if (string.IsNullOrEmpty(rawValue) || rawValue.Equals("null"))
 			{
 				value = null;
@@ -25,7 +61,7 @@ namespace MongoDBSemesterProjekt.Utils
 				BsonType.Double => (double.TryParse(rawValue, out var d), d),
 				BsonType.Decimal128 => (decimal.TryParse(rawValue, out var d), d),
 				BsonType.Boolean => (bool.TryParse(rawValue, out var b), b),
-				BsonType.DateTime => (DateTime.TryParse(rawValue, out var dt), dt),
+				BsonType.DateTime => (dtParser(rawValue, out var dt), dt),
 				BsonType.ObjectId => (ObjectId.TryParse(rawValue, out var oid), oid),
 				BsonType.Binary => (true, Convert.FromBase64String(rawValue)),
 				_ => (false, null)

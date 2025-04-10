@@ -1,4 +1,5 @@
-﻿using MongoDBSemesterProjekt.Database.Models;
+﻿using Microsoft.Extensions.Primitives;
+using MongoDBSemesterProjekt.Database.Models;
 
 namespace MongoDBSemesterProjekt.Services.TemplateRouter
 {
@@ -9,7 +10,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 		public RouteTemplateModel? RouteTemplate { get; set; }
 		public string? RouteParameterName { get; init; }
 
-		public bool Matches(ReadOnlySpan<char> path, Dictionary<string, string?> routeValues)
+		public bool Matches(ReadOnlySpan<char> path, Dictionary<string, StringValues> routeValues)
 		{
 			if (Path == null) // wildcard
 			{

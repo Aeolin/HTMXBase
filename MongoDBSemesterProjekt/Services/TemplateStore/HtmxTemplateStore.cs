@@ -1,7 +1,10 @@
 ﻿using HandlebarsDotNet;
 using Microsoft.VisualBasic;
+using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDBSemesterProjekt.Database;
 using MongoDBSemesterProjekt.Database.Models;
+using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.ModelEvents;
 using MongoDBSemesterProjekt.Services.ObjectCache;
 using MongoDBSemesterProjekt.Utils;
@@ -15,15 +18,21 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 		private readonly IMongoDatabase _db;
 		private readonly IInMemoryCache<string, HandlebarsTemplate<object, object>> _cache;
 		private readonly IHandlebars _handleBars;
+		private readonly IFileStorage _fileStore;
 		private readonly ChannelReader<ModifyEvent<TemplateData>> _modifyEvents;
 		private readonly HashSet<string> _collectionIds = new HashSet<string>();
+		private readonly IServiceScope _scope;
+		private readonly IServiceProvider _provider;
 
-		public HtmxTemplateStore(IMongoDatabase mongoClient, IInMemoryCache<string, HandlebarsTemplate<object, object>> cache, IHandlebars handleBars, ChannelReader<ModifyEvent<TemplateData>> modifyEvents)
+		public HtmxTemplateStore(IServiceProvider provider, IInMemoryCache<string, HandlebarsTemplate<object, object>> cache, IHandlebars handleBars, ChannelReader<ModifyEvent<TemplateData>> modifyEvents, IFileStorage fileStorage)
 		{
-			_db=mongoClient;
+			_provider = provider;
+			_scope = provider.CreateScope();
+			_db=_scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
 			_cache=cache;
 			_handleBars=handleBars;
 			_modifyEvents=modifyEvents;
+			_fileStore=fileStorage;
 		}
 
 		public override async Task StartAsync(CancellationToken cancellationToken)
@@ -34,6 +43,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 
 		public override Task StopAsync(CancellationToken cancellationToken)
 		{
+			_scope?.Dispose();
 			return base.StopAsync(cancellationToken);
 		}
 
@@ -55,7 +65,13 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 		{
 			var collection = await _db.GetCollection<CollectionModel>("collections").Find(x => x.Templates.Count > 0 && x.Slug == collectionSlug).FirstOrDefaultAsync();
 			if (collection != null)
+			{
 				_collectionIds.AddRange(collection.Templates.Where(x => x.Disabled == false).Select(x => MakeKey(collection.Slug, x.Slug)));
+				if (string.IsNullOrEmpty(collection.DefaultTemplate) == false && collection.Templates.Any(y => y.Slug == collection.DefaultTemplate))
+				{
+					_collectionIds.Add(MakeKey(collection.Slug));
+				}
+			}
 		}
 
 		private void HandleUpdateTemplate(TemplateModel template, string collectionSlug)
@@ -158,5 +174,34 @@ namespace MongoDBSemesterProjekt.Services.TemplateStore
 
 		public bool HasDefaultTemplate(string collectionId) => HasTemplate(collectionId);
 
+		public  async Task<HandlebarsTemplate<object, object>?> GetStaticTemplateAsync(string identifier, CancellationToken token = default)
+		{
+			if (string.IsNullOrEmpty(identifier))
+				return null;
+
+			var cacheKey = $":S:{identifier}";
+			if (_cache.TryGet(cacheKey, out var template))
+				return template;
+
+			StaticContentModel contentModel;
+			var contentCollection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
+			if (ObjectId.TryParse(identifier, out var objId))
+				contentModel = await contentCollection.Find(x => x.Id == objId).FirstOrDefaultAsync(token);
+			else
+				contentModel = await contentCollection.FindByPath(identifier).FirstOrDefaultAsync(token);
+
+			if (contentModel == null)
+				return null;
+
+			using var stream = await _fileStore.GetBlobAsync(contentModel.StorageId);
+			if (stream == null)
+				return null;
+
+			using var reader = new StreamReader(stream);
+			var templateString = await reader.ReadToEndAsync();
+			template = _handleBars.Compile(templateString);
+			_cache.Set(cacheKey, template);
+			return template;
+		}
 	}
 }

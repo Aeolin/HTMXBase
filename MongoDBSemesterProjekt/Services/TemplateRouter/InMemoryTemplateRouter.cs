@@ -1,13 +1,16 @@
 ﻿
 using Microsoft.AspNetCore.Routing.Tree;
+using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Services.ModelEvents;
+using MongoDBSemesterProjekt.Services.Pagination;
 using MongoDBSemesterProjekt.Utils;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using System.Web;
 
 namespace MongoDBSemesterProjekt.Services.TemplateRouter
 {
@@ -95,19 +98,20 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 
 		private static readonly Regex VirtualPathTemplatePattern = new Regex(@"(?:\/|^|$)\{(\S*)\}(?:\/|^|$)", RegexOptions.Compiled);
 
-		private bool TryParseRouteTemplate(RouteTemplateModel model, Dictionary<string, string> raw, out RouteMatch? match)
+		private bool TryParseRouteTemplate(RouteTemplateModel model, Dictionary<string, StringValues> raw, out RouteMatch? match)
 		{
 			var parsed = new Dictionary<string, object?>();
 			if (model.Fields != null && model.IsRedirect == false && model.IsStaticContentAlias == false)
 			{
 				foreach (var field in model.Fields)
 				{
-					if (raw.TryGetValue(field.ParameterName, out var rawValue) == false && field.IsOptional == false)
+					if (raw.TryGetValue(field.ParameterName, out var rawValues) == false && field.IsOptional == false)
 					{
 						match = null;
 						return false;
 					}
 
+					var rawValue = rawValues.FirstOrDefault();
 					if (string.IsNullOrEmpty(rawValue))
 					{
 						if (field.IsNullable)
@@ -126,22 +130,24 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 						return false;
 					}
 
+					if(value is string stringValue && field.UrlEncode)
+						value = HttpUtility.UrlEncode(stringValue);
+
 					parsed[field.ParameterName] = value;
 				}
+
+				if (model.Paginate)
+				{
+					foreach(var paginationKey in PaginationValues.PAGINATION_VALUES)
+					{
+						if(raw.TryGetValue(paginationKey, out var rawValues))
+						{
+							parsed[paginationKey] = paginationKey == PaginationValues.COLUMNS_KEY ? rawValues : rawValues.FirstOrDefault();
+						}
+					}
+				}
 			}
-
-			if (model.Paginate)
-			{
-				if (raw.TryGetValue("limit", out var limit) && int.TryParse(limit, out var limitValue))
-					parsed["limit"] = limitValue;
-
-				if (raw.TryGetValue("cursorNext", out var cursorNext) && ObjectId.TryParse(cursorNext, out var cursorNextValue))
-					parsed["cursorNext"] = cursorNextValue;
-
-				if(raw.TryGetValue("cursorPrevious", out var cursorPrevious) && ObjectId.TryParse(cursorPrevious, out var cursorPreviousValue))
-					parsed["cursorPrevious"] = cursorPreviousValue;
-			}
-
+	
 			var collectionSlug = model?.CollectionSlug ?? raw.GetValueOrDefault("collectionSlug");
 			var templateSlug = model.TemplateSlug ?? raw.GetValueOrDefault("templateSlug");
 			if (model.IsStaticContentAlias)
@@ -164,7 +170,7 @@ namespace MongoDBSemesterProjekt.Services.TemplateRouter
 				var path = context.Request.Path.Value.AsSpan().Slice(1);
 				var index = -1;
 				Queue<RouteTreeNode> queue = new(16);
-				var routeValues = context.Request.Query.ToDictionary(x => x.Key, x => x.Value.First());
+				var routeValues = context.Request.Query.ToDictionary(x => x.Key, x => x.Value);
 				queue.Enqueue(_routeTree);
 
 

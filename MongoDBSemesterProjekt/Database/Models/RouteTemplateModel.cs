@@ -3,6 +3,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.Api.Requests;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
@@ -23,6 +24,14 @@ namespace MongoDBSemesterProjekt.Database.Models
 		public string? TemplateSlug { get; set; }
 		public string? StaticTemplate { get; set; }
 		public bool Paginate { get; set; }
+
+		[Range(1, 250)]
+		public int PaginationLimit { get; set; } = 20;
+		
+		public string[]? PaginationColumns { get; set; }
+
+		public bool PaginateAscending { get; set; } = true;
+
 		public FieldMatchModel[]? Fields { get; set; }
 
 		[BsonIgnore]
@@ -31,6 +40,6 @@ namespace MongoDBSemesterProjekt.Database.Models
 
 		[BsonIgnore]
 		[JsonIgnore]
-		public bool IsRedirect => string.IsNullOrEmpty(RedirectUrl) == false;	
+		public bool IsRedirect => string.IsNullOrEmpty(RedirectUrl) == false;
 	}
 }
