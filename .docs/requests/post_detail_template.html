@@ -3,7 +3,7 @@
 	<h1 class="post-title">{{title}}</h1>
 	<p class="post-info-label label">Written By</p>
 	<div class="post-info">
-		<p class="post-author" hx-get="/users/{{this._ownerId}}/post-author" hx-trigger="load" hx-swap="outerHTML">Author loading...</p>
+		<p class="post-author" hx-get="/users/{{this._ownerId}}/post_author_template" hx-trigger="load" hx-swap="outerHTML">Author loading...</p>
 		<p class="post-date">Last Updated <span class="date">{{this._updated}}</span></p>
 	</div>
 	{{#exists-len summary content ">=" 1000}}

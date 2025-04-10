@@ -1,8 +1,12 @@
-<html lang="en">
+<html>
+
 <head>
-	<title>Aeolin's Blog</title>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta lang="en">
+	<title>Aeolin's Blog</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
+	<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
 	<link rel="stylesheet" href="/static-content/styles.css">
 	<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 	<script defer="">
@@ -10,8 +14,7 @@
 			event.detail.headers['Accept'] = 'text/html';
 		});
 	</script>
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
-	<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
+
 </head>
 
 <body>
@@ -21,15 +24,22 @@
 		</div>
 		<div>
 			<ul class="nav-container">
+				{{#if User}}
+				<li class="nav-welcome"><span>Hello {{User.Username}}</span></li>
+				<li class="nav-item"><a class="nav-link" href="/blog/create-post">New Post</a></li>
+				<li class="nav-item"><a class="nav-link" href="/api/v1/auth/logout?redirect=%2findex.html">Logout</a></li>
+				{{else}}
 				<li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+				{{/if}}
 				<li class="nav-item"><a class="nav-link" href="/blog/posts">Posts</a></li>
 			</ul>
 		</div>
 	</div>
 	<div class="page-body">
 		<div class="page-content">
-			{{content}}
-		</div>
+		{{{Data}}}
+		</div>	
 	</div>
 </body>
+
 </html>

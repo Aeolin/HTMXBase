@@ -53,7 +53,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			var user = new UserModel
 			{
 				Email = request.Email,
-				Username = request.Username ?? request.Email.ToLower(),
+				Username = request.Username?.ToLower() ?? request.Email.ToLower(),
 				FirstName = request.FirstName,
 				LastName = request.LastName,
 				PasswordHash = "",
@@ -94,6 +94,9 @@ namespace MongoDBSemesterProjekt.Controllers
 		{
 			var lowerEmailOrUser = request.UsernameOrEmail.ToLower();
 			var user = _db.GetCollection<UserModel>(UserModel.CollectionName).Find(x => x.Username == lowerEmailOrUser || x.Email == lowerEmailOrUser).FirstOrDefault();
+			if (user == null)
+				return NotFound();
+			
 			if (user.IsLockoutEnabled || _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password) == PasswordVerificationResult.Failed)
 				return Unauthorized();
 

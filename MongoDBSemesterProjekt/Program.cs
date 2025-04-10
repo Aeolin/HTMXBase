@@ -64,7 +64,6 @@ builder.Services.AddControllers(opts =>
 
 builder.Services.Configure<FlatFileStorageConfig>(config.GetSection("FlatFileStorage"));
 builder.Services.AddScoped<IFileStorage, FlatFileStorage>();
-builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMongoClient>(x => new MongoClient(x.GetRequiredService<IConfiguration>().GetConnectionString("MongoDB")));
 builder.Services.AddScoped<IMongoDatabase>(x =>
 {
@@ -138,7 +137,8 @@ builder.Services.AddSingleton<InMemoryTemplateRouter>();
 builder.Services.AddSingleton<ITemplateRouter>(x => x.GetRequiredService<InMemoryTemplateRouter>());
 builder.Services.AddSingleton<IHostedService>(x => x.GetRequiredService<InMemoryTemplateRouter>());
 builder.Services.AddSingleton<RedirectHandlingMiddleware>();
-
+builder.Services.AddOpenApiDocument();
+builder.Services.AddHttpLogging();
 var app = builder.Build();
 
 BsonSerializer.RegisterSerializer(new JsonDocumentSerializer(BsonType.String));
@@ -147,12 +147,9 @@ BsonSerializer.RegisterSerializer(new JsonDocumentSerializer(BsonType.String));
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-	app.MapOpenApi();
-
-	app.UseSwaggerUi(opts =>
-	{
-		opts.DocumentPath = "openapi/v1.json";
-	});
+	app.UseHttpLogging();
+	app.UseOpenApi();
+	app.UseReDoc();
 }
 
 app.UseHttpsRedirection();
