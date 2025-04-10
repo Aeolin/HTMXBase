@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.Database.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace MongoDBSemesterProjekt.Api.Requests
 {
@@ -13,9 +14,11 @@ namespace MongoDBSemesterProjekt.Api.Requests
 		public string? RedirectUrl { get; set; }
 		public string? VirtualPathTemplate { get; set; }
 		public bool Paginate { get; set; }
-		public int? PaginationLimit;
+		
+		[Range(1, 250)]
+		public int PaginationLimit { get; set; } = 20;
 		public string[]? PaginationColumns { get; set; }
-		public bool? PaginateAscending;
+		public bool? PaginateAscending { get; set; }
 
 		public ApiFieldMatchModel[]? Fields { get; set; }
 	}

@@ -1,4 +1,5 @@
 using AutoMapper;
+using AutoMapper.Internal;
 using HandlebarsDotNet;
 using HandlebarsDotNet.Extension.Json;
 using HandlebarsDotNet.Features;
@@ -18,6 +19,7 @@ using MongoDBSemesterProjekt.Api.Models;
 using MongoDBSemesterProjekt.Authorization;
 using MongoDBSemesterProjekt.Database;
 using MongoDBSemesterProjekt.Database.InterceptingShim;
+using MongoDBSemesterProjekt.Database.Interceptors;
 using MongoDBSemesterProjekt.Database.Models;
 using MongoDBSemesterProjekt.Database.Session;
 using MongoDBSemesterProjekt.Middleware;
@@ -27,6 +29,7 @@ using MongoDBSemesterProjekt.Services.FileStorage;
 using MongoDBSemesterProjekt.Services.JWTAuth;
 using MongoDBSemesterProjekt.Services.ModelEvents;
 using MongoDBSemesterProjekt.Services.ObjectCache;
+using MongoDBSemesterProjekt.Services.Pagination;
 using MongoDBSemesterProjekt.Services.TemplateRouter;
 using MongoDBSemesterProjekt.Services.TemplateStore;
 using MongoDBSemesterProjekt.Utils;
@@ -35,6 +38,7 @@ using System.Collections.Frozen;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using AutoMapper.Internal;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -63,7 +67,8 @@ builder.Services.AddControllers(opts =>
 });
 
 builder.Services.Configure<FlatFileStorageConfig>(config.GetSection("FlatFileStorage"));
-builder.Services.AddScoped<IFileStorage, FlatFileStorage>();
+builder.Services.AddSingleton<IFileStorage, FlatFileStorage>();
+builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMongoClient>(x => new MongoClient(x.GetRequiredService<IConfiguration>().GetConnectionString("MongoDB")));
 builder.Services.AddScoped<IMongoDatabase>(x =>
 {
@@ -73,14 +78,7 @@ builder.Services.AddScoped<IMongoDatabase>(x =>
 	return new InterceptingDatabaseShim(client.GetDatabase(url.DatabaseName), x);
 });
 
-builder.Services.AddScoped<IMongoDatabaseSession>(x =>
-{
-	var client = x.GetRequiredService<IMongoClient>();
-	var config = x.GetRequiredService<IConfiguration>();
-	var url = new MongoUrl(config.GetConnectionString("MongoDB"));
-	return new MongoDatabaseSession(client, x, url.DatabaseName);
-});
-
+builder.Services.AddScoped<IPaginationService<BsonDocument>, PaginationService<BsonDocument>>();
 builder.Services.AddModelEventChannel<ModelData<RouteTemplateModel>>();
 builder.Services.AddModelEventChannel<TemplateData>();
 builder.Services.AddEntityUpdateInterceptors();
@@ -92,7 +90,11 @@ builder.Services.Configure<InMemoryCacheConfig>(x =>
 
 builder.Services.AddSingleton<IInMemoryCache<string, HandlebarsTemplate<object, object>>, InMemoryCache<string, HandlebarsTemplate<object, object>>>();
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IHtmxTemplateStore, HtmxTemplateStore>();
+
+builder.Services.AddSingleton<HtmxTemplateStore>();
+builder.Services.AddSingleton<IHtmxTemplateStore>(x => x.GetRequiredService<HtmxTemplateStore>());
+builder.Services.AddSingleton<IHostedService>(x => x.GetRequiredService<HtmxTemplateStore>());
+
 builder.Services.AddEndpointsApiExplorer();
 var jwtConfig = config.GetSection("JwtOptions").Get<JwtOptions>();
 if (jwtConfig == null)
@@ -125,11 +127,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+
+
 builder.Services.AddAutoMapper(opts =>
 {
+	opts.AllowNullDestinationValues = true;
 	opts.AddMaps(Assembly.GetExecutingAssembly());
+	opts.AllowNullCollections = true;
 	opts.CreateMap<CollectionModel, ApiCollection>(MemberList.Destination);
 });
+
 
 builder.Services.UseAsyncSeeding(Seeding.CreateCollectionsAsync);
 builder.Services.UseAsyncSeeding(Seeding.UpdatePermissionsAsync);

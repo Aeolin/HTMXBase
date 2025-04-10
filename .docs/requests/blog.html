@@ -26,12 +26,12 @@
 			<ul class="nav-container">
 				{{#if User}}
 				<li class="nav-welcome"><span>Hello {{User.Username}}</span></li>
-				<li class="nav-item"><a class="nav-link" href="/blog/create-post">New Post</a></li>
-				<li class="nav-item"><a class="nav-link" href="/api/v1/auth/logout?redirect=%2findex.html">Logout</a></li>
+				<a class="nav-item" href="/blog/create-post"><span class="nav-link" >New Post</span></a>
+				<a class="nav-item" href="/api/v1/auth/logout?redirect=%2findex.html"><span class="nav-link">Logout</span></a>
 				{{else}}
-				<li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+				<a class="nav-item" href="/login"><span class="nav-link" >Login</span></a>
 				{{/if}}
-				<li class="nav-item"><a class="nav-link" href="/blog/posts">Posts</a></li>
+				<a class="nav-item" href="/blog/posts"><span class="nav-link" >Posts</span></a>
 			</ul>
 		</div>
 	</div>

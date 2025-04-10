@@ -32,6 +32,14 @@ namespace MongoDBSemesterProjekt.Utils
 				collection.Add(item);
 		}
 
+		public static IEnumerable<T> DefaultIfNullOrEmpty<T>(this IEnumerable<T>? enumerable, T defaultValue = default) 
+		{
+			if (enumerable == null || !enumerable.Any())
+				return [defaultValue]; 
+
+			return enumerable;
+		}
+
 		public static void IfAttribute<T>(this MemberInfo type, Action<T> attributeAction) where T : Attribute
 		{
 			var attributes = type.GetCustomAttributes<T>();

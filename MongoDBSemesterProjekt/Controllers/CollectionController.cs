@@ -365,7 +365,7 @@ namespace MongoDBSemesterProjekt.Controllers
 			return Ok();
 		}
 
-		[HttpPost("form")]
+		[HttpPost("schema-as-file")]
 		[ProducesResponseType<ApiCollection>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
 		[Permission("collections/create", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]

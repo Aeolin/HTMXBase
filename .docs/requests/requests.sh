@@ -1,3 +1,4 @@
+#!/bin/sh
 user_name="admin"
 user_password="@admin13"
 user_email="admin@localhost"
@@ -9,7 +10,7 @@ curl -k  --request POST \
   --form "Password=\"$user_password\"" \
   --form "Username=$user_name" \
   --form "FirstName=Admin" \
-  --form "LastName=System"
+  --form "LastName=System" 
 
 jwt=$(curl -k --request POST \
   --url $api_url/api/v1/auth/login?useCookie=false \
@@ -92,7 +93,7 @@ json_body=$(cat <<EOF
       "Template": $template_overview
     }
   ],
-  
+  "DefaultTemplate": "comment",
   "InsertPermission": "blog/user",
   "ModifyPermission": "blog/moderator",
   "DeletePermission": "blog/moderator",
@@ -207,6 +208,8 @@ json_body=$(cat <<EOF
 	"UrlTemplate": "blog/posts/{postId}/comments",
 	"CollectionSlug": "comments",
 	"TemplateSlug": "comments",
+	"PaginationLimit": 5,
+	"PaginationColumns": ["_id"],
 	"Paginate": true,
 	"Fields": [
 		{
@@ -293,8 +296,7 @@ json_body=$(cat <<EOF
 	"TemplateSlug": null,
 	"StaticTemplate": "static-content/blog.html",
 	"Paginate": false,
-	"PaginationLimit": 0,
-	"PaginationColumns": [],
+	"PaginationLimit": 1,
 	"PaginateAscending": false,
 	"Fields": []
 }
