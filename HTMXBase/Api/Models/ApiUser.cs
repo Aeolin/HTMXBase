@@ -2,6 +2,7 @@
 using AwosFramework.Generators.MongoDBUpdateGenerator;
 using AutoMapper;
 using HTMXBase.Database.Models;
+using AutoMapper.Configuration.Annotations;
 
 namespace HTMXBase.Api.Models
 {
@@ -30,6 +31,7 @@ namespace HTMXBase.Api.Models
 		[UpdateProperty(ApplyToAllMethods = true)]
 		public string AvatarUrl { get; set; }
 
+		[Ignore]
 		[UpdatePropertyIgnore]
 		public ApiGroup[] Groups { get; set; }
 

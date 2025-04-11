@@ -79,6 +79,7 @@ builder.Services.AddScoped<IMongoDatabase>(x =>
 });
 
 builder.Services.AddScoped<IPaginationService<BsonDocument>, PaginationService<BsonDocument>>();
+builder.Services.AddScoped<IPaginationService<UserModel>, PaginationService<UserModel>>();
 builder.Services.AddModelEventChannel<ModelData<RouteTemplateModel>>();
 builder.Services.AddModelEventChannel<TemplateData>();
 builder.Services.AddEntityUpdateInterceptors();

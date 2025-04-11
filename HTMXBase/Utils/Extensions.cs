@@ -32,10 +32,31 @@ namespace HTMXBase.Utils
 				collection.Add(item);
 		}
 
-		public static IEnumerable<T> DefaultIfNullOrEmpty<T>(this IEnumerable<T>? enumerable, T defaultValue = default) 
+		public static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(this IEnumerable<T> source)
+		{
+			foreach (var item in source)
+			{
+				yield return item;
+				await Task.Yield(); 
+			}
+		}
+
+		public static async Task<T[]> ToArrayAsync<T>(this IAsyncEnumerable<T> source)
+		{
+			var list = new List<T>();
+			await foreach (var item in source)
+				list.Add(item);
+
+			return list.ToArray();
+		}
+
+
+		public static IEnumerable<T> NotNull<T>(this IEnumerable<T?> enumerable) => enumerable.Where(x => x != null);
+
+		public static IEnumerable<T> DefaultIfNullOrEmpty<T>(this IEnumerable<T>? enumerable, T defaultValue = default)
 		{
 			if (enumerable == null || !enumerable.Any())
-				return [defaultValue]; 
+				return [defaultValue];
 
 			return enumerable;
 		}
@@ -112,6 +133,25 @@ namespace HTMXBase.Utils
 			return tryParseMethod.CreateDelegate<TryParseDelegate<T>>();
 		}
 
+		public static V GetParsedValueOrDefault<V>(this IQueryCollection collection, string key, V defaultValue)
+		{
+			if (collection.TryGetValue(key, out var value))
+			{
+				if (value.Count == 0)
+					return defaultValue;
+
+				if (typeof(V).IsAssignableFrom(typeof(IEnumerable<string>)))
+					return (V)(IEnumerable<string>)value;	
+
+				var del = GetTryParse<V>();
+				if (del?.Invoke(value[0], out var result) == true)
+				{
+					return result;
+				}
+			}
+			return defaultValue;
+		}
+
 		public static V GetParsedValueOrDefault<V>(this IDictionary<string, object?> dict, string key, V defaultValue) => GetParsedValueOrDefault<string, V>(dict, key, defaultValue);
 		public static V GetParsedValueOrDefault<K, V>(this IDictionary<K, object?> dict, K key, V defaultValue)
 		{
@@ -120,10 +160,13 @@ namespace HTMXBase.Utils
 				if (value is V v)
 					return v;
 
+				if (typeof(V).IsAssignableFrom(typeof(IEnumerable<string>)))
+					return (V)(IEnumerable<string>)value;
+
 				if (value is string valueStr)
 				{
 					var del = GetTryParse<V>();
-					if(del?.Invoke(valueStr, out var result) == true)
+					if (del?.Invoke(valueStr, out var result) == true)
 					{
 						return result;
 					}

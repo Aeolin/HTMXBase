@@ -27,6 +27,7 @@ namespace HTMXBase.Services.Pagination
 		public const string COLUMNS_KEY = "orderBy";
 		public static readonly FrozenSet<string> PAGINATION_VALUES = [LIMIT_KEY, CURSOR_PREV_KEY, CURSOR_NEXT_KEY, ASCENDING_KEY, COLUMNS_KEY];
 
+
 		public PaginationValues(string? cursorNext, string? cursorPrev, int limit, bool ascending, IEnumerable<string> columns)
 		{
 			CursorNext = cursorNext;
@@ -37,6 +38,15 @@ namespace HTMXBase.Services.Pagination
 		}
 
 
+		public static PaginationValues FromRequest(HttpContext ctx)
+		{
+			var cursorNext = ctx.Request.Query[CURSOR_NEXT_KEY].FirstOrDefault();
+			var cursorPrevious = ctx.Request.Query[CURSOR_PREV_KEY].FirstOrDefault();
+			var limit = ctx.Request.Query.GetParsedValueOrDefault<int>(LIMIT_KEY, 20);
+			var ascending = ctx.Request.Query.GetParsedValueOrDefault<bool>(ASCENDING_KEY, true);
+			var columns = ctx.Request.Query.GetParsedValueOrDefault<IEnumerable<string>>(COLUMNS_KEY, new[] { "_id" });
+			return new PaginationValues(cursorNext, cursorPrevious, limit, ascending, columns);
+		}
 
 		public static PaginationValues FromRouteMatch(RouteMatch match)
 		{
@@ -44,7 +54,7 @@ namespace HTMXBase.Services.Pagination
 			var cursorPrevious = match.QueryValues.GetParsedValueOrDefault<string?>(CURSOR_PREV_KEY, null);
 			var limit = match.QueryValues.GetParsedValueOrDefault<int>(LIMIT_KEY, match.RouteTemplateModel.PaginationLimit);
 			var ascending = match.QueryValues.GetParsedValueOrDefault<bool>(ASCENDING_KEY, true);
-			var columns = match.QueryValues.GetParsedValueOrDefault<IEnumerable<string>>(COLUMNS_KEY, match.RouteTemplateModel.PaginationColumns.DefaultIfNullOrEmpty("_id"));
+			var columns = match.QueryValues.GetParsedValueOrDefault<IEnumerable<string>>(COLUMNS_KEY, new[] { "_id" });
 			return new PaginationValues(cursorNext, cursorPrevious, limit, ascending, columns);
 		}
 	}

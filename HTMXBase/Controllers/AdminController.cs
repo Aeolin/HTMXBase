@@ -12,6 +12,7 @@ using HTMXBase.ApiModels.Requests;
 using HTMXBase.Database.Models;
 using HTMXBase.Api.Models;
 using HTMXBase.DataBinders.JsonOrForm;
+using HTMXBase.Services.Pagination;
 
 namespace HTMXBase.Controllers
 {
@@ -20,8 +21,33 @@ namespace HTMXBase.Controllers
 	public class AdminController : HtmxBaseController
 	{
 	
-		public AdminController(IMongoDatabase dataBase, IMapper mapper) : base(dataBase, mapper)
+		private readonly IPaginationService<UserModel> _paginationService;
+
+		public AdminController(IMongoDatabase dataBase, IMapper mapper, IPaginationService<UserModel> paginationService) : base(dataBase, mapper)
 		{
+			_paginationService=paginationService;
+		}
+	
+		private async IAsyncEnumerable<ApiUser> ToApiUserAsync(IEnumerable<UserModel> users)
+		{
+			var groups = users.SelectMany(x => x.Groups).Distinct();
+			var groupModels = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => groups.Contains(x.Slug)).ToListAsync();
+			var groupLookup = groupModels.ToDictionary(x => x.Slug, x => _mapper.Map<ApiGroup>(x));
+			foreach (var user in users)
+			{
+				var apiUser = _mapper.Map<ApiUser>(user);
+				apiUser.Groups = user.Groups.Select(x => groupLookup[x]).ToArray();
+				yield return apiUser;
+			}
+		}
+
+		private async Task<ApiUser> ToApiUserAsync(UserModel user)
+		{
+			var groups = user.Groups.Distinct();
+			var groupModels = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => groups.Contains(x.Slug)).ToListAsync();
+			var apiUser = _mapper.Map<ApiUser>(user);
+			apiUser.Groups = user.Groups.Select(x => _mapper.Map<ApiGroup>(x)).ToArray();
+			return apiUser;
 		}
 
 		[HttpGet("groups")]
@@ -134,12 +160,34 @@ namespace HTMXBase.Controllers
 		[HttpGet("users")]
 		[ProducesResponseType<ObjectIdCursorResult<ApiUser[]>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> ListUsersAsync([FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorNext = null, [FromQuery] ObjectId? cursorPrevious = null)
-		{	
-			var data = await _db.GetCollection<UserModel>(UserModel.CollectionName)
-				.PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiUser>);
-
+		public async Task<IActionResult> ListUsersAsync()
+		{
+			var paginationValues = PaginationValues.FromRequest(HttpContext);
+			var data = await _paginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync);
 			return Ok(data);
+		}
+
+		[HttpGet("users/search")]
+		[ProducesResponseType<ObjectIdCursorResult<ApiUser[]>>(StatusCodes.Status200OK)]
+		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
+		public async Task<IActionResult> FindUsersAsync([FromQuery]string? name = null, [FromQuery]string? email = null)
+		{
+			var b = Builders<UserModel>.Filter;
+			var list = new List<FilterDefinition<UserModel>>();
+			if(string.IsNullOrEmpty(name) == false)
+			{
+				list.Add(b.Regex(x => x.FirstName, name));
+				list.Add(b.Regex(x => x.LastName, name));
+				list.Add(b.Regex(x => x.Username, name));
+			}
+
+			if (string.IsNullOrEmpty(email) == false)
+				list.Add(b.Regex(x => x.Email, email));
+
+			var filter = list.Count > 1 ? b.Or(list) : list.FirstOrDefault();
+			var paginationValues = PaginationValues.FromRequest(HttpContext);
+			var users = await _paginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync, filter);
+			return Ok(users);
 		}
 
 		[HttpGet("users/{id}")]
@@ -152,7 +200,8 @@ namespace HTMXBase.Controllers
 			if (user == null)
 				return NotFound();
 			
-			return Ok(_mapper.Map<ApiUser>(user));
+			var api = await ToApiUserAsync(user);
+			return Ok(api);
 		}
 
 		[HttpPut("users/{id}")]
@@ -167,7 +216,8 @@ namespace HTMXBase.Controllers
 			if (result == null)
 				return NotFound();
 			
-			return Ok(_mapper.Map<ApiUser>(result));
+			var api = await ToApiUserAsync(result);
+			return Ok(api);
 		}
 
 		[HttpGet("users/{id}/groups")]
@@ -196,7 +246,8 @@ namespace HTMXBase.Controllers
 			if (result == null)
 				return NotFound();
 
-			return Ok(_mapper.Map<ApiUser>(result));
+			var api = await ToApiUserAsync(result);
+			return Ok(api);
 		}
 
 		[HttpDelete("users/{id}/groups")]
@@ -211,7 +262,8 @@ namespace HTMXBase.Controllers
 			if (result == null)
 				return NotFound();
 
-			return Ok(_mapper.Map<ApiUser>(result));
+			var api = await ToApiUserAsync(result);
+			return Ok(api);
 		}
 	}
 }

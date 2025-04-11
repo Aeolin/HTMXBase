@@ -19,6 +19,7 @@ namespace HTMXBase.Services.Pagination
 	public class PaginationService<T> : IPaginationService<T>
 	{
 		private static Dictionary<string, PaginationCollectionMeta> _collectionMetaCache = new();
+		private static readonly TypeMetaCache _metaCache = new(typeof(T));
 
 		private readonly IMongoDatabase _db;
 
@@ -112,11 +113,13 @@ namespace HTMXBase.Services.Pagination
 		}
 
 		private static string? EncodeCursorElement(string col, T doc)
-		{
-			var property = typeof(T).GetProperty(col);
-			if (property != null)
+		{	
+			if (_metaCache.Properties.TryGetValue(col, out var property))
 			{
 				var value = property.GetValue(doc);
+				if (value is DateTime dt)
+					return $"{col}={dt.Ticks}";
+
 				if (value != null)
 					return $"{col}={HttpUtility.UrlEncode(value.ToString())}";
 			}
@@ -174,10 +177,17 @@ namespace HTMXBase.Services.Pagination
 
 		public Task<CursorResult<T, string?>> PaginateAsync(string collectionName, PaginationValues values, ICollection<FilterDefinition<T>>? filterList = null)
 		{
-			return PaginateAsync(collectionName, values, x => x, filterList);
+			return PaginateAsync(collectionName, values, x => x.ToAsyncEnumerable(), filterList);
 		}
 
-		public async Task<CursorResult<TRes, string?>> PaginateAsync<TRes>(string collectionName, PaginationValues values, Func<T, TRes> mapper, ICollection<FilterDefinition<T>>? filterList = null)
+		public Task<CursorResult<TRes, string?>> PaginateAsync<TRes>(PaginationValues values, Func<IEnumerable<T>, IAsyncEnumerable<TRes>> mapper, ICollection<FilterDefinition<T>>? filterList = null)
+		{
+			var collectionName = _db.GetCollectionName<T>();
+			return PaginateAsync(collectionName, values, mapper, filterList);
+		}
+
+
+		public async Task<CursorResult<TRes, string?>> PaginateAsync<TRes>(string collectionName, PaginationValues values, Func<IEnumerable<T>, IAsyncEnumerable<TRes>> mapper, ICollection<FilterDefinition<T>>? filterList = null)
 		{
 			filterList ??= new List<FilterDefinition<T>>();
 			var meta = await GetCollectionMetaAsync(collectionName);
@@ -201,7 +211,7 @@ namespace HTMXBase.Services.Pagination
 					toMap = toMap.Skip(1);
 			}
 
-			var mapped = toMap.Take(values.Limit).Select(mapper).ToArray();
+			var mapped = await mapper(toMap.Take(values.Limit)).ToArrayAsync();
 			switch (direction)
 			{
 				case PaginationDirection.Forward:
@@ -226,6 +236,7 @@ namespace HTMXBase.Services.Pagination
 					throw new InvalidOperationException("Unknown PaginationDirection");
 			}
 		}
+
 
 	}
 }

@@ -73,7 +73,7 @@ namespace HTMXBase.Database
 			};
 
 			await database.CreateCollectionAsync(name, creationOptions);
-			return schema;
+			return schema["$jsonSchema"].AsBsonDocument;
 		}
 
 		public static async Task CreateCollectionWithSchemaAsync<T>(this IMongoDatabase database, string name)
