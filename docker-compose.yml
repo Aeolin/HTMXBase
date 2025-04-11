@@ -1,0 +1,6 @@
+services:
+  mongodbsemesterprojekt:
+    image: ${DOCKER_REGISTRY-}mongodbsemesterprojekt
+    build:
+      context: .
+      dockerfile: MongoDBSemesterProjekt/Dockerfile

@@ -1,0 +1,33 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35707.178
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HTMXBase", "HTMXBase\HTMXBase.csproj", "{4E26A23F-C3D0-4B07-B572-4333ADFDD36F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AwosFramework.Generators.MongoDBUpdateGenerator", "AwosFramework.Generators.MongoDBUpdateGenerator\AwosFramework.Generators.MongoDBUpdateGenerator.csproj", "{6FE686F2-363E-42C3-BBFD-5A0495A6E0A0}"
+EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{81DDED9D-158B-E303-5F62-77A2896D2A5A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4E26A23F-C3D0-4B07-B572-4333ADFDD36F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4E26A23F-C3D0-4B07-B572-4333ADFDD36F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4E26A23F-C3D0-4B07-B572-4333ADFDD36F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4E26A23F-C3D0-4B07-B572-4333ADFDD36F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6FE686F2-363E-42C3-BBFD-5A0495A6E0A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6FE686F2-363E-42C3-BBFD-5A0495A6E0A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6FE686F2-363E-42C3-BBFD-5A0495A6E0A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6FE686F2-363E-42C3-BBFD-5A0495A6E0A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81DDED9D-158B-E303-5F62-77A2896D2A5A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81DDED9D-158B-E303-5F62-77A2896D2A5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81DDED9D-158B-E303-5F62-77A2896D2A5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81DDED9D-158B-E303-5F62-77A2896D2A5A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
