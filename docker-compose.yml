@@ -1,6 +1,56 @@
 services:
-  mongodbsemesterprojekt:
-    image: ${DOCKER_REGISTRY-}mongodbsemesterprojekt
+  htmxbase:
+    image: ${DOCKER_REGISTRY-}htmxbase
     build:
       context: .
-      dockerfile: MongoDBSemesterProjekt/Dockerfile
+      dockerfile: HTMXBase/Dockerfile
+    hostname: htmxbase
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    hostname: mongodb
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=htmxbase
+
+  express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    hostname: mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH=false
+      - ME_CONFIG_MONGODB_URL=mongodb://mongodb:27017 
+    depends_on:
+      - mongodb
+  
+  nginx:
+    image: ${DOCKER_REGISTRY-}nginx
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"  
+    depends_on:
+      - htmxbase
+      - express
+
+  seeding:
+    image: ${DOCKER_REGISTRY-}seeding
+    build:
+      context: ./seeding
+      dockerfile: Dockerfile
+    depends_on:
+      - htmxbase
+
+volumes:
+  mongodb_data:
+    driver: local

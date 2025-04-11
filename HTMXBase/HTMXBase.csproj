@@ -29,6 +29,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="../.docs/**">
+      <Link>.docs\%(RecursiveDir)/%(FileName)%(Extension)</Link>
+    </None>
+  </ItemGroup>
+  
+  <ItemGroup>
     <ProjectReference Include="..\AwosFramework.Generators.MongoDBUpdateGenerator\AwosFramework.Generators.MongoDBUpdateGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 

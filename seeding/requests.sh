@@ -2,7 +2,9 @@
 user_name="admin"
 user_password="@admin13"
 user_email="admin@localhost"
-api_url="https://$(hostname).local:7110"
+api_url="http://htmxbase:8080"
+
+sleep 10 # hacky way to wait for backend to be started
 
 curl -k  --request POST \
   --url $api_url/api/v1/auth/register \
@@ -354,4 +356,4 @@ curl -k --request POST \
   --form "title=My first post" \
   --form "slug=my-first-post" \
   --form "summary=My first post on this blog" \
-  --form "content=#My First Post\n\nThis is my first post on my new fancy blog, please lets be polite and enjoy ourselves ^^"
+  --form "content=# My First Post <br> This is my first post on my new fancy blog, please lets be polite and enjoy ourselves ^^"

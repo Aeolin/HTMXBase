@@ -1,0 +1,27 @@
+server {
+    listen 80;
+    server_name ${DOMAIN} ${SUBDOMAINS};
+    return 301 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl;
+  server_name ${BACKEND_DOMAIN};
+  ssl_certificate /etc/nginx/certs/selfsigned.crt;
+  ssl_certificate_key /etc/nginx/certs/selfsigned.key;
+
+  location ${BACKEND_LOCATION} {
+    proxy_pass ${BACKEND_URL};
+  }	
+}
+
+server {
+  listen 443 ssl;
+  server_name ${EXPRESS_DOMAIN};
+  ssl_certificate /etc/nginx/certs/selfsigned.crt;
+  ssl_certificate_key /etc/nginx/certs/selfsigned.key;
+
+  location ${EXPRESS_LOCATION} {
+      proxy_pass ${EXPRESS_URL};
+  }
+}

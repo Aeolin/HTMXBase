@@ -12,5 +12,14 @@
     </None>
     <None Include="docker-compose.yml" />
     <None Include=".dockerignore" />
+    <None Include="nginx/**">
+      <Link>nginx\%(RecursiveDir)/%(FileName)%(Extension)</Link>
+    </None>
+    <None Include="seeding/**">
+      <Link>seeding\%(RecursiveDir)/%(FileName)%(Extension)</Link>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="nginx\default.conf.template" />
   </ItemGroup>
 </Project>

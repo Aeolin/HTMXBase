@@ -12,20 +12,20 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["MongoDBSemesterProjekt/MongoDBSemesterProjekt.csproj", "MongoDBSemesterProjekt/"]
+COPY ["HTMXBase/HTMXBase.csproj", "HTMXBase/"]
 COPY ["AwosFramework.Generators.MongoDBUpdateGenerator/AwosFramework.Generators.MongoDBUpdateGenerator.csproj", "AwosFramework.Generators.MongoDBUpdateGenerator/"]
-RUN dotnet restore "./MongoDBSemesterProjekt/MongoDBSemesterProjekt.csproj"
+RUN dotnet restore "./HTMXBase/HTMXBase.csproj"
 COPY . .
-WORKDIR "/src/MongoDBSemesterProjekt"
-RUN dotnet build "./MongoDBSemesterProjekt.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/HTMXBase"
+RUN dotnet build "./HTMXBase.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./MongoDBSemesterProjekt.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./HTMXBase.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "MongoDBSemesterProjekt.dll"]
+ENTRYPOINT ["dotnet", "HTMXBase.dll"]
