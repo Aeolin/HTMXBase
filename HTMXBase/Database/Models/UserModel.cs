@@ -9,6 +9,8 @@ namespace HTMXBase.Database.Models
 		public required string PasswordHash { get; set; }
 
 		[Index(IsUnique = true)]
+		public required string NormalizedUsername { get; set; }
+
 		public required string Username { get; set; }
 
 		[Index(IsUnique = true)]

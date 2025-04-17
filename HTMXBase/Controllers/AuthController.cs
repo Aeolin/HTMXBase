@@ -50,10 +50,12 @@ namespace HTMXBase.Controllers
 		[AllowAnonymous]
 		public async Task<IActionResult> RegisterAsync([FromJsonOrForm] ApiRegisterRequest request)
 		{
+			var userName = request.Username?.ToLower() ?? request.Email.Until("@").ToLower();
 			var user = new UserModel
 			{
 				Email = request.Email,
-				Username = request.Username ?? request.Email.ToLower(),
+				Username = userName,
+				NormalizedUsername = userName.ToLower(),
 				FirstName = request.FirstName,
 				LastName = request.LastName,
 				PasswordHash = "",
@@ -93,7 +95,10 @@ namespace HTMXBase.Controllers
 		public async Task<IActionResult> LoginAsync([FromJsonOrForm] ApiLoginRequest request, [FromQuery] bool useCookie = false)
 		{
 			var lowerEmailOrUser = request.UsernameOrEmail.ToLower();
-			var user = _db.GetCollection<UserModel>(UserModel.CollectionName).Find(x => x.Username == lowerEmailOrUser || x.Email == lowerEmailOrUser).FirstOrDefault();
+			var user = _db.GetCollection<UserModel>(UserModel.CollectionName).Find(x => x.Username.ToLower() == lowerEmailOrUser || x.Email == lowerEmailOrUser).FirstOrDefault();
+			if (user == null)
+				return Unauthorized();
+
 			if (user.IsLockoutEnabled || _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password) == PasswordVerificationResult.Failed)
 				return Unauthorized();
 

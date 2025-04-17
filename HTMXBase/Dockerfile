@@ -28,4 +28,5 @@ RUN dotnet publish "./HTMXBase.csproj" -c $BUILD_CONFIGURATION -o /app/publish /
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+RUN mkdir -p /app/content && chmod -R 777 /app/content
 ENTRYPOINT ["dotnet", "HTMXBase.dll"]

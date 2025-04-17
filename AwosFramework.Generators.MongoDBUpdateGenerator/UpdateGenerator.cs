@@ -185,7 +185,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 		private static string? GeneratePropertyIfSource(UpdateProperty property, string modelParamName)
 		{
-			var propertyAccess = property.BuildSourcePropertyAccessCode(modelParamName);
+			var propertyAccess = property.BuildSourcePropertyAccessCode(property, modelParamName);
 			if (property.IsSourceEnumerable)
 			{
 				if (property.IgnoreNull && property.IgnoreEmpty)
@@ -209,7 +209,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 
 		private static string GeneratePropertySource(UpdateApiModel model, UpdateMethod method, UpdateProperty property, string listName, string modelParamName)
 		{
-			var sourcePropertyAccess = property.BuildSourcePropertyAccessCode(modelParamName);
+			var sourcePropertyAccess = property.BuildSourcePropertyAccessCode(property, modelParamName);
 			var targetPropertyAccess = property.BuildTargetPropertyAccessCode(method.NestedProperty);
 			if (property.IsTargetEnumerable)
 			{
@@ -413,11 +413,15 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 				Constants.UpdatePropertyAttribute_IsSourceArray_PropertyName,
 				Constants.UpdatePropertyAttribute_IsSourceArray_DefaultValue, out var isSourceArraySet);
 
+			var appendSourceExpression = updateAttribute.attr.GetNamedAttributeValueOrDefault(semantic,
+				Constants.UpdatePropertyAttribute_AppendSourceExpression_PropertyName,
+				Constants.UpdatePropertyAttribute_AppendSourceExpression_DefaultValue, out var appendSourceExpressionSet);
+
 			var isPropertyEnumerable = updateAttribute.isOnClass ? isSourceArray : isEnumerable;
 
 			var update = new UpdateProperty(sourceName, isPropertyEnumerable, methodName, applyToAll, false,
 				updateAttribute.attr.GetLocation(), updateAttribute.isOnClass, targetPropertyName, ignoreNull && isNullable,
-				ignoreEmpty && isEnumerable, collectionHandling, isString && useStringEmpty);
+				ignoreEmpty && isEnumerable, collectionHandling, isString && useStringEmpty, appendSourceExpression);
 
 			if (isSourceArraySet && updateAttribute.isOnClass == false)
 				diagnostics.Add(Diagnostic.Create(Constants.IsSourceArrayNotApplicable, updateAttribute.attr.GetLocation()));

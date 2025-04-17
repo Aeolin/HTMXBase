@@ -150,7 +150,7 @@ namespace HTMXBase.Services.TemplateRouter
 			}
 
 			var collectionSlug = model.CollectionSlug ?? raw.GetValueOrDefault("collectionSlug");
-			if (string.IsNullOrEmpty(collectionSlug))
+			if (string.IsNullOrEmpty(collectionSlug) && model.IsRedirect == false && model.IsStaticContentAlias == false)
 			{
 				match = null;
 				return false;

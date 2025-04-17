@@ -39,6 +39,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using AutoMapper.Internal;
+using Microsoft.AspNetCore.HttpLogging;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -148,7 +149,10 @@ builder.Services.AddSingleton<ITemplateRouter>(x => x.GetRequiredService<InMemor
 builder.Services.AddSingleton<IHostedService>(x => x.GetRequiredService<InMemoryTemplateRouter>());
 builder.Services.AddSingleton<RedirectHandlingMiddleware>();
 builder.Services.AddOpenApiDocument();
-builder.Services.AddHttpLogging();
+builder.Services.AddHttpLogging(opts =>
+{
+	opts.LoggingFields = HttpLoggingFields.RequestMethod | HttpLoggingFields.RequestPath | HttpLoggingFields.RequestQuery;
+});
 var app = builder.Build();
 
 BsonSerializer.RegisterSerializer(new JsonDocumentSerializer(BsonType.String));

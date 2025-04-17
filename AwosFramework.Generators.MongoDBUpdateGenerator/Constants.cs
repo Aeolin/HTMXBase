@@ -78,6 +78,9 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 		public const string UpdatePropertyAttribute_IsSourceArray_PropertyName = "IsSourceArray";
 		public const bool UpdatePropertyAttribute_IsSourceArray_DefaultValue = false;
 
+		public const string UpdatePropertyAttribute_AppendSourceExpression_PropertyName = "AppendSourceExpression";
+		public const string UpdatePropertyAttribute_AppendSourceExpression_DefaultValue = null;
+
 		public static readonly string UpdatePropertyAttributeClass =
 		$$"""
 		using System;
@@ -89,6 +92,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			{
 				public string? {{UpdatePropertyAttribute_TargetPropertyName_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_TargetPropertyName_DefaultValue == null ? "null" : $"\"{UpdatePropertyAttribute_TargetPropertyName_DefaultValue}\"")}};
 				public string? {{UpdatePropertyAttribute_MethodName_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_MethodName_DefaultValue == null ? "null" : $"\"{UpdatePropertyAttribute_MethodName_DefaultValue}\"")}};
+				public string? {{UpdatePropertyAttribute_AppendSourceExpression_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_AppendSourceExpression_DefaultValue == null ? "null" : $"\"{UpdatePropertyAttribute_AppendSourceExpression_DefaultValue}\"")}};
 				public bool {{UpdatePropertyAttribute_IgnoreNull_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_IgnoreNull_DefaultValue ? "true" : "false")}};
 				public bool {{UpdatePropertyAttribute_IgnoreEmpty_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_IgnoreEmpty_DefaultValue ? "true" : "false")}};
 				public bool {{UpdatePropertyAttribute_ApplyToAllMethods_PropertyName}} { get; set; } = {{(UpdatePropertyAttribute_ApplyToAllMethods_DefaultValue ? "true" : "false")}};

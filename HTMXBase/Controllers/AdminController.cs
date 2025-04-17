@@ -59,7 +59,7 @@ namespace HTMXBase.Controllers
 		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> ListGroupsAsync() 
 		{			
-			var result = await _groupPaginationService.PaginateAsync<ApiGroup>(PaginationValues.FromRequest(HttpContext), _mapper.Map<ApiGroup>);
+			var result = await _groupPaginationService.PaginateAsync<ApiGroup>(PaginationValues.FromRequest(HttpContext.Request), _mapper.Map<ApiGroup>);
 			return Ok(result);
 		}
 
@@ -178,7 +178,7 @@ namespace HTMXBase.Controllers
 		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> ListUsersAsync()
 		{
-			var paginationValues = PaginationValues.FromRequest(HttpContext);
+			var paginationValues = PaginationValues.FromRequest(HttpContext.Request);
 			var data = await _userPaginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync);
 			return Ok(data);
 		}
@@ -203,7 +203,7 @@ namespace HTMXBase.Controllers
 				list.Add(b.Regex(x => x.Email, email));
 
 			var filter = list.Count > 1 ? b.Or(list) : list.FirstOrDefault();
-			var paginationValues = PaginationValues.FromRequest(HttpContext);
+			var paginationValues = PaginationValues.FromRequest(HttpContext.Request);
 			var users = await _userPaginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync, filter);
 			return Ok(users);
 		}

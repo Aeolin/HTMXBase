@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using System.Collections.Frozen;
 using System.Reflection;
 
@@ -13,7 +14,7 @@ namespace HTMXBase.Services.Pagination
 		{
 			Type = type;
 			var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-			var propertyDict = properties.ToDictionary(x => x.Name, x => x);
+			var propertyDict = properties.Where(x => x.IsSpecialName).ToDictionary(x => x.Name, x => x);
 			foreach (var property in properties)
 			{
 				var attr = property.GetCustomAttribute<BsonElementAttribute>();

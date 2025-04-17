@@ -230,27 +230,7 @@ namespace HTMXBase.Utils
 		}
 
 
-		public static async Task<ObjectIdCursorResult<TTarget>> PaginateAsync<TItem, TTarget>(this IMongoCollection<TItem> collection, int limit, ObjectId? next, ObjectId? previous, Expression<Func<TItem, object>> exp, Func<TItem, TTarget> map, Func<TItem, ObjectId>? idGetter = null)
-		{
-			if (next.HasValue)
-			{
-				var res = await collection.Find(Builders<TItem>.Filter.Gt(exp, next.Value)).SortBy(exp).Limit(limit).ToListAsync();
-				return CursorResult.FromCollection(res, limit, next, map, idGetter);
-			}
-			else if (previous.HasValue)
-			{
-				idGetter ??= CursorResult.GetId;
-				var res = await collection.Find(Builders<TItem>.Filter.Lte(exp, previous.Value)).SortByDescending(exp).Limit(limit).ToListAsync();
-				res.Reverse();
-				ObjectId? prevId = res.Count > 0 ? idGetter(res.First()) : null;
-				return CursorResult.FromCollection(res, limit, prevId, map, idGetter);
-			}
-			else
-			{
-				var res = await collection.Find(Builders<TItem>.Filter.Empty).SortBy(exp).ToListAsync();
-				return CursorResult.FromCollection(res, limit, null, map, idGetter);
-			}
-		}
+
 
 		public static FilterDefinition<TItem> CombineWithAnd<TItem>(this IEnumerable<FilterDefinition<TItem>> filters)
 		{
@@ -274,47 +254,6 @@ namespace HTMXBase.Utils
 			return filterList.Count == 1 ? filterList.First() : Builders<TItem>.Filter.And(filterList);
 		}
 
-		private static readonly SortDefinition<BsonDocument> SortIdAsc = Builders<BsonDocument>.Sort.Ascending("_id");
-		private static readonly SortDefinition<BsonDocument> SortIdDesc = Builders<BsonDocument>.Sort.Descending("_id");
-		public static Task<ObjectIdCursorResult<BsonDocument>> PaginateAsync(this IMongoCollection<BsonDocument> collection, int limit, ObjectId? next, ObjectId? previous, ICollection<FilterDefinition<BsonDocument>> filterList = null, bool ascending = true)
-		{
-			return PaginateAsync(collection, limit, next, previous, x => x, filterList, ascending);
-		}
-
-		private static SortDefinition<BsonDocument> GetPaginationSortNext(bool ascending)
-		{
-			return ascending ? SortIdAsc : SortIdDesc;
-
-		}
-
-		private static SortDefinition<BsonDocument> GetPaginationSortPrevious(bool ascending)
-		{
-			return ascending ? SortIdDesc : SortIdAsc;
-		}
-
-		public static async Task<ObjectIdCursorResult<TResult>> PaginateAsync<TResult>(this IMongoCollection<BsonDocument> collection, int limit, ObjectId? next, ObjectId? previous, Func<BsonDocument, TResult> map, ICollection<FilterDefinition<BsonDocument>> filterList = null, bool ascending = true)
-		{
-			if (next.HasValue)
-			{
-				var filter = CombineFilters(Builders<BsonDocument>.Filter.Gt("_id", next.Value), filterList);
-				var res = await collection.Find(filter).Sort(GetPaginationSortNext(ascending)).Limit(limit).ToListAsync();
-				return CursorResult.FromCollection(res, limit, next, map);
-			}
-			else if (previous.HasValue)
-			{
-				var filter = CombineFilters(Builders<BsonDocument>.Filter.Lte("_id", previous.Value), filterList);
-				var res = await collection.Find(filter).Sort(GetPaginationSortPrevious(ascending)).Limit(limit).ToListAsync();
-				res.Reverse();
-				return CursorResult.FromCollection(res, limit, res.FirstOrDefault()?["_id"].AsNullableObjectId, map);
-			}
-			else
-			{
-				var filter = CombineFilters(null, filterList);
-				var res = await collection.Find(filter).Sort(GetPaginationSortNext(ascending)).Limit(limit).ToListAsync();
-				return CursorResult.FromCollection(res, limit, null, map);
-			}
-		}
-
 		public static IEnumerable<T> SelectWhere<T, S>(this IEnumerable<S> items, Func<S, (bool keep, T mapped)> mapper)
 		{
 			foreach (var item in items)
@@ -323,6 +262,15 @@ namespace HTMXBase.Utils
 				if (keep)
 					yield return mapped;
 			}
+		}
+
+		public static string Until(this string @string, string until)
+		{
+			var index = @string.IndexOf(until);
+			if (index == -1)
+				return @string;
+
+			return @string.Substring(0, index);
 		}
 
 		public static JsonDocument ToJsonDocument(this BsonDocument document)

@@ -1,6 +1,6 @@
 <div class="comment-container">
 	<div class="comment-header">
-		<div class="author" hx-get="/users/{{Data._ownerId}}/comment_author_template" hx-swap="outerHTML" hx-trigger="load">Author Loading...</div>
+		<div class="author" hx-get="/users/{{Data._ownerId}}/comment-author-template" hx-swap="outerHTML" hx-trigger="load">Author Loading...</div>
 		<p class="comment-date">Date <span class="date">{{Data._updated}}</span></p>
 	</div>
 	<div class="comment-content">

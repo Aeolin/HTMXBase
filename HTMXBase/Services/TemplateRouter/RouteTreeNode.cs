@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Primitives;
 using HTMXBase.Database.Models;
+using System.Diagnostics;
 
 namespace HTMXBase.Services.TemplateRouter
 {
@@ -31,6 +32,11 @@ namespace HTMXBase.Services.TemplateRouter
 		public static RouteTreeNode Create(string path, RouteTemplateModel? routeTemplate = null)
 		{
 			return new RouteTreeNode(path, null, routeTemplate);
+		}
+
+		public override string ToString()
+		{
+			return Path ?? $"{{{RouteParameterName}}}";
 		}
 
 		public RouteTreeNode(string? path, string? routeParameterName, RouteTemplateModel? routeTemplate = null)

@@ -7,9 +7,9 @@ services:
     hostname: htmxbase
     environment:
       - CONNECTIONSTRINGS__MongoDB=mongodb://mongodb:27017/htmxbase 
-      - FLATFILESTORAGE__STORAGEPATH=/content/uploaded
+      - FLATFILESTORAGE__STORAGEPATH=/app/content/uploaded
     volumes:
-      - htmxbase_content:/content  
+      - htmxbase_content:/app/content
     depends_on:
       - mongodb
 

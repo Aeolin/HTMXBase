@@ -3,7 +3,9 @@ user_name="admin"
 user_password="@admin13"
 user_email="admin@localhost"
 api_url="http://htmxbase:8080"
+#api_url="https://$(hostname).local:7110" # uncomment when using script from wsl
 
+echo "Sleeping for 10 seconds to ensure backend is started..."
 sleep 10 # hacky way to wait for backend to be started
 
 curl -k  --request POST \
@@ -155,7 +157,7 @@ json_body=$(cat <<EOF
 	"UrlTemplate": "blog/posts/{postSlug}",
 	"CollectionSlug": "posts",
 	"TemplateSlug": "post-detail",
-	"StaticTemplate": "static-content/blog.html",
+	"BaseTemplatePathTemplate": "static-content/blog.html",
 	"Paginate": false,
 	"Fields": [
 		{
@@ -164,7 +166,8 @@ json_body=$(cat <<EOF
 			"MatchKind": 0,
 			"BsonType": 2,
 			"IsNullable": false,
-			"IsOptional": false
+			"IsOptional": false,
+			"Value": null
 		}
 	]
 }
@@ -179,7 +182,7 @@ curl -k --request POST \
 json_body=$(cat <<EOF
 {	
 	"UrlTemplate": "index.html",
-	"RedirectUrl": "$api_url/blog/posts"	
+	"RedirectUrlTemplate": "/blog/posts"	
 }
 EOF
 )
@@ -194,7 +197,7 @@ json_body=$(cat <<EOF
 	"UrlTemplate": "blog/posts",
 	"CollectionSlug": "posts",
 	"TemplateSlug": "posts",
-	"StaticTemplate": "static-content/blog.html",
+	"BaseTemplatePathTemplate": "static-content/blog.html",
 	"Paginate": true
 }
 EOF
@@ -220,7 +223,8 @@ json_body=$(cat <<EOF
 			"MatchKind": 0,
 			"BsonType": 7,
 			"IsNullable": false,
-			"IsOptional": false
+			"IsOptional": false,
+			"Value": null
 		}
 	]
 }
@@ -236,10 +240,10 @@ json_body=$(cat <<EOF
 {
 	"UrlTemplate": "login",
 	"VirtualPathTemplate": "static-content/login.html",
-	"RedirectUrl": null,
+	"RedirectUrlTemplate": null,
 	"CollectionSlug": null,
 	"TemplateSlug": null,
-	"StaticTemplate": "static-content/blog.html",
+	"BaseTemplatePathTemplate": "static-content/blog.html",
 	"Paginate": false,
 	"Fields": []
 }
@@ -255,10 +259,10 @@ json_body=$(cat <<EOF
 {
 	"UrlTemplate": "register",
 	"VirtualPathTemplate": "static-content/register.html",
-	"RedirectUrl": null,
+	"RedirectUrlTemplate": null,
 	"CollectionSlug": null,
 	"TemplateSlug": null,
-	"StaticTemplate": "static-content/blog.html",
+	"BaseTemplatePathTemplate": "static-content/blog.html",
 	"Paginate": false,
 	"Fields": []
 }
@@ -274,10 +278,10 @@ json_body=$(cat <<EOF
 {  
 	"UrlTemplate": "/",
 	"VirtualPathTemplate": null,
-	"RedirectUrl": "/blog/posts",
+	"RedirectUrlTemplate": "/blog/posts",
 	"CollectionSlug": null,
 	"TemplateSlug": null,
-	"StaticTemplate": null,
+	"BaseTemplatePathTemplate": null,
 	"Paginate": false,
 	"Fields": []
 }
@@ -293,10 +297,10 @@ json_body=$(cat <<EOF
 {
 	"UrlTemplate": "blog/create-post",
 	"VirtualPathTemplate": "static-content/create-post.html",
-	"RedirectUrl": null,
+	"RedirectUrlTemplate": null,
 	"CollectionSlug": null,
 	"TemplateSlug": null,
-	"StaticTemplate": "static-content/blog.html",
+	"BaseTemplatePathTemplate": "static-content/blog.html",
 	"Paginate": false,
 	"PaginationLimit": 1,
 	"PaginateAscending": false,
@@ -314,7 +318,7 @@ curl -k --request POST \
   --url "$api_url/api/v1/collections/users/templates" \
   --header 'Content-Type: multipart/form-data' \
   --header "Authorization: Bearer $jwt" \
-  --form "Slug=post_author_template" \
+  --form "Slug=post-author-template" \
   --form "SingleItem=true" \
   --form "templateFile=@./post_author_template.html"
   
@@ -322,7 +326,7 @@ curl -k --request POST \
   --url "$api_url/api/v1/collections/users/templates" \
   --header 'Content-Type: multipart/form-data' \
   --header "Authorization: Bearer $jwt" \
-  --form "Slug=comment_author_template" \
+  --form "Slug=comment-author-template" \
   --form "SingleItem=true" \
   --form "templateFile=@./comment_author_template.html"
 
@@ -330,7 +334,7 @@ json_body=$(cat <<EOF
 {
 	"UrlTemplate": "users/{userId}/{templateSlug}",
 	"CollectionSlug": "users",
-	"Paginate": true,
+	"Paginate": false,
 	"Fields": [
 		{
 			"ParameterName": "userId",
@@ -338,7 +342,8 @@ json_body=$(cat <<EOF
 			"MatchKind": 0,
 			"BsonType": 7,
 			"IsNullable": false,
-			"IsOptional": false
+			"IsOptional": false,
+			"Value": null
 		}
 	]
 }

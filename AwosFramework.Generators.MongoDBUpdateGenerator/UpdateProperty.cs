@@ -7,7 +7,7 @@ using System.Text;
 namespace AwosFramework.Generators.MongoDBUpdateGenerator
 {
 	internal class UpdateProperty
-	{  
+	{
 		public bool IsOnClass { get; set; }
 		public bool IsSourceArray { get; set; }
 		public string SourceName { get; set; }
@@ -20,18 +20,28 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 		public bool ApplyToAllMethods { get; set; }
 		public string MethodName { get; set; }
 		public bool IsUnmarked { get; set; }
+		public string AppendSourceExpression { get; set; }
 		public Location SourceLocation { get; set; }
 		public CollectionHandling CollectionHandling { get; set; }
 
-		public string BuildSourcePropertyAccessCode(string parameterName) => IsOnClass ? parameterName : $"{parameterName}.{SourceName}";
+		public string BuildSourcePropertyAccessCode(UpdateProperty property, string parameterName)
+		{
+			var properteryAccess = IsOnClass ? parameterName : $"{parameterName}.{SourceName}";
+			if(string.IsNullOrEmpty(property.AppendSourceExpression) == false)
+				properteryAccess += property.AppendSourceExpression;
+
+			return properteryAccess;
+		}
+
 		public string BuildTargetPropertyAccessCode(string? nestedProperty) => nestedProperty == null ? TargetName : $"{nestedProperty}.{TargetName}";
 
 		public UpdateProperty(string sourceName, bool isEnumerable, string methodName, bool applyToAllMethods, bool isUnmarked, Location sourceLocation, bool isOnClass,
-			string targetName = Constants.UpdatePropertyAttribute_TargetPropertyName_DefaultValue, 
-			bool ignoreNull = Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue, 
-			bool ignoreEmpty = Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue, 
-			CollectionHandling collectionHandling = Constants.UpdatePropertyAttribute_CollectionHandling_DefaultValue, 
-			bool useStringEmpty = Constants.UpdatePropertyAttribute_UseStringEmpty_DefaultValue
+			string targetName = Constants.UpdatePropertyAttribute_TargetPropertyName_DefaultValue,
+			bool ignoreNull = Constants.UpdatePropertyAttribute_IgnoreNull_DefaultValue,
+			bool ignoreEmpty = Constants.UpdatePropertyAttribute_IgnoreEmpty_DefaultValue,
+			CollectionHandling collectionHandling = Constants.UpdatePropertyAttribute_CollectionHandling_DefaultValue,
+			bool useStringEmpty = Constants.UpdatePropertyAttribute_UseStringEmpty_DefaultValue,
+			string appendSourceExpression = Constants.UpdatePropertyAttribute_AppendSourceExpression_DefaultValue
 		)
 		{
 			SourceName = sourceName;
@@ -46,6 +56,7 @@ namespace AwosFramework.Generators.MongoDBUpdateGenerator
 			ApplyToAllMethods = applyToAllMethods;
 			UseStringEmpty = useStringEmpty;
 			IsOnClass = isOnClass;
+			AppendSourceExpression = appendSourceExpression;
 		}
 	}
 }
