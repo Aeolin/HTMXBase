@@ -32,7 +32,7 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpGet]
-		[ProducesResponseType<CursorResult<ApiRouteTemplate[], string>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<CursorResult<ApiRouteTemplate, string>>(StatusCodes.Status200OK)]
 		[Permission("routes/get", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(RouteTemplateModel.CollectionName)]
@@ -44,7 +44,7 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpGet("search")]
-		[ProducesResponseType<CursorResult<ApiRouteTemplate[], string>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<CursorResult<ApiRouteTemplate, string>>(StatusCodes.Status200OK)]
 		[Permission("routes/get", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(RouteTemplateModel.CollectionName)]
