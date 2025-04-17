@@ -391,6 +391,9 @@ This will result in the following BsonDocument
 List of all api endpoints and their parameters as well as responses.
 Note `pagination` in Query field means all pagination values specified in the [Pagination](#pagination) section
 
+To see an example how to use the api take a look at the [requests.sh](/seeding/requests.sh) file the seeding service uses to create the blog demo application
+Alternatively there is also a RedDoc instance running at [/swagger](http://localhost/swagger)
+
 ### Output Fomatter
 The api by default will respond in Json. If the Accept header is set to `text/html` or the request is made by HTMX the api will respond with a rendered template. The template is specified by the `Hx-Tempalte` header or the `templateSlug` or the  query parameter or the `DefaultTemplate` of the collection. If no template is specified and no default template is set, the api will return a 404 error.
 
