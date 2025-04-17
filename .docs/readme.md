@@ -588,3 +588,23 @@ The api by default will respond in Json. If the Accept header is set to `text/ht
 | IsNullable | Boolean | No | If true, this parameter is allowed to have a null value |
 | UrlEncode | Boolean | No | **Only applicable if `BsonType` = 2 (`String`)** If true, this parameter will be/stay url encoded for comparison |
 | Value | String | Yes | The value of the parameter, if set this will be used for comparison instead of the parameter value from the url or query (mainly used to set non user controllable constrains) |
+
+### StaticContentController
+/api/v1/static-content
+
+| Method | SubPath | Content | Query | Response Type | Status Codes | Permission | Template Source | Description |
+| ------ | ------- | ------- | ----- | ------------- | ------------ | ---------- | --------------- | ----------- |
+| Get | /dir | - | `path` | String[] | 200 | files/read | - | Gets all files in a virtual directory |
+| Post | / | [StaticContentForm](#staticcontentform) | - | ObjectId | 200, 403 | files/upload | - | Creates a new static content file |
+| Delete | /\{id} | - | - | - | 200, 403 | files/delete | - | Deletes a static content file |
+
+#### StaticContentForm
+form data for static content upload
+
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| File | FormFile | No | The file to upload |
+| Slug | String | Yes | The slug of the file if null uses the form file name url encoded |
+| VirtualPath | String | Yes | The virtual path of the file if null default to '/' |
+| DeletePermission | String | Yes | The permission required to delete this file if null no permission is required |
+| ReadPermission | String | Yes | The permission required to read this file if null no permission is required |

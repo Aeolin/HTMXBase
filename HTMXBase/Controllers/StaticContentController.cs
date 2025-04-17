@@ -72,7 +72,7 @@ namespace HTMXBase.Controllers
 				}
 			}
 
-			return Ok();
+			return Ok(dirSet.ToArray());
 		}
 
 
