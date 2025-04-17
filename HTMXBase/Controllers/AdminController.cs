@@ -184,7 +184,7 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpGet("users/search")]
-		[ProducesResponseType<ObjectIdCursorResult<ApiUser[]>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<CursorResult<ApiUser, String>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(UserModel.CollectionName)]
