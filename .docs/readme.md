@@ -188,10 +188,11 @@ Formatting is done by replacing all parameters `{parameterName}` with the value 
 | RedirectUrlTemplate** | String | Yes | No | If not null, this route will redirect to this url instead of rendering a template, the template will replace parameters `{parameter}` taken form the `UrlTemplate` and query.|
 | CollectionSlug | String | Yes | No | If this route points to a collection this sepcifies which collection it points to. If null the url is expected to either contain a parameter `{collectionSlug}` or a query paramater of the same name |
 | TemplateSlug | String | Yes | No | If this route points to a template this sepcified which template it points to. If null the slug is taken from the url parameter `{templateSlug}` or a query paramater of the same name. If non is specified the `DefaultTemplate` in the collection will be used |
-| BaseTemplatePathTemplate | String | Yes | No | If not null, this route has a base template specified. The path will match [static content](#staticcontentmodel) and use the content as a [handlebars](https://github.com/Handlebars-Net/Handlebars.Net) template. The template will be filled as usual where the render output of the matched collection content is passed in as `Data`.
+| BaseTemplatePathTemplate | String | Yes | No | If not null, this route has a base template specified. The path will match [static content](#staticcontentmodel) and use the content as a [handlebars](https://github.com/Handlebars-Net/Handlebars.Net) template. The template will be filled as usual where the render output of the matched collection content is passed in as `Data`. |
 | Paginate | Boolean | No | No | If true, this route will paginate the collection and the Data passed to the template will be wrapped inside a [CursorResult<BsonDocument, string>](#cursorresult) |
 | PaginationLimit | Int | Yes | No | The default number of items to return per page. 1 <= n <= 250 |
 | PaginationColumns | String[] | Yes | No | The columns to paginate by. If null `_id` is used by default |
+| PaginateAscending | Boolean | Yes | No | If true, the items will be paginated in ascending order by default |
 | Fields | [FieldMatchModel[]](#fieldmatchmodel) | Yes | No | Metadata describing how comparison is done between collection items and the url parameters and query values |
 
 \** Logically exclusive to each other if both are set, redirect will take precedence.
@@ -544,3 +545,46 @@ The api by default will respond in Json. If the Accept header is set to `text/ht
 | ModfiyPermission | String | Yes | No | Name of the permission required to modify entities in this collection. If null, no permission is required. |
 | DeletePermission | String | Yes | No | Name of the permission required to delete entities in this collection. If null, no permission is required. |
 | ComplexQueryPermission | String | Yes | No | Name of the permission required to use mongodb filters to paginate entities in this collection. If null, no permission is required. |
+
+### RouteController
+/api/v1/routes
+
+| Method | SubPath | Content | Query | Response Type | Status Codes | Permission | Template Source | Description |
+| ------ | ------- | ------- | ----- | ------------- | ------------ | ---------- | --------------- | ----------- |
+| Get | / | - | `pagination` | [CursorResult](#cursorresult)<[ApiRouteTemplate](#apiroutetemplate), String> | 200, 403 | routes/get | routes | Paginate over all routes |
+| Get | /search | - | `pagination`, `regex` | [CursorResult](#cursorresult)<[ApiRouteTemplate](#apiroutetemplate), String> | 200, 403 | - | routes | Paginate over all routes with `UrlTemplate` filtered by the given regex |
+| Post | / | [ApiRouteTemplate](#apiroutetemplate) | - | [ApiRouteTemplate](#apiroutetemplate) | 200, 403 | routes/create | routes | Creates a new route and returns the created object |
+| Post | /\{id}/fields | [ApiFieldMatchModel](#apifieldmatchmodel) | - | [ApiRouteTemplate](#apiroutetemplate) | 200, 403 | routes/update | routes | Creates a new field match model and returns the update route model |
+| Put | /\{id}/fields/{parameterName} | [ApiFieldMatchModel](#apifieldmatchmodel) | - | [ApiRouteTemplate](#apiroutetemplatemodel) | 200, 403 | routes/update | routes | Updates a field match model and returns the updated route model |
+| Delete | /\{id}/fields/{parameterName} | - | - | [ApiRouteTemplate](#apiroutetemplatemodel) | 200, 403 | routes/update | - | Deletes a field match model and returns the updated route model |
+| Put | /\{id} | [ApiRouteTemplate](#apiroutetemplatemodel) | - | [ApiRouteTemplate](#apiroutetemplatemodel) | 200, 403 | routes/update | routes | Updates a route and returns the updated route model |
+| Delete | /\{id} | - | - | - | 200, 403 | routes/delete | - | Deletes a route |
+
+#### ApiRouteTemplate
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Id | ObjectId | No | The id of the route |
+| UrlTemplate | String | No | The url template for this route where parameters are formatted as `{parameterName}` |
+| CollectionSlug | String | Yes | No | If this route points to a collection this sepcifies which collection it points to. If null the url is expected to either contain a parameter `{collectionSlug}` or a query paramater of the same name |
+| TemplateSlug | String | Yes | No | If this route points to a template this sepcified which template it points to. If null the slug is taken from the url parameter `{templateSlug}` or a query paramater of the same name. If non is specified the `DefaultTemplate` in the collection will be used |
+| RedirectUrlTemplate | String | Yes | No | If not null, this route will redirect to this url instead of rendering a template, the template will replace parameters `{parameter}` taken form the `UrlTemplate` and query.|
+| VirtualPathTemplate | String | Yes | No | If not null, this route will match [static content](#staticcontentmodel) and return the content of the file, the template will replace parameters `{parameter}` taken form the `UrlTemplate` and query. Alternatively this can be an ObjectId referencing a [StaticContentModel](#staticcontentmodel) directly |
+| BaseTemplatePathTemplate | String | Yes | If not null, this route has a base template specified. The path will match [static content](#staticcontentmodel) and use the content as a [handlebars](https://github.com/Handlebars-Net/Handlebars.Net) template. The template will be filled as usual where the render output of the matched collection content is passed in as `Data`. 
+| Paginate | Boolean | No | If true, this route will paginate the collection and the Data passed to the template will be wrapped inside a [CursorResult<BsonDocument, string>](#cursorresult) |
+| PaginationLimit | Int | No | The default number of items to return per page. 1 <= n <= 250 |
+| PaginationColumns | String[] | Yes | The columns to paginate by. If null `_id` is used by default |
+| PaginateAscending | Boolean | Yes  | If true, the items will be paginated in ascending order by default |
+| Fields | [ApiFieldMatchModel[]](#apifieldmatchmodel) | Yes | Metadata describing how comparison is done between collection items and the url parameters and query values |
+
+
+#### ApiFieldMatchModel
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| ParameterName | String | No | The name of the parameter in the url or query |
+| DocumentFieldName | String | No | The name of the field in the collection |
+| MatchKind | [MatchKind](#matchkind) | No | The kind of comparison to use |
+| BsonType* | [UrlQueryBsonType](#bsontype) | No | The bson type the parameter value should be interpreted as during coparison |
+| IsOptional | Boolean | No | If true, this parameter is optional and will not result in a 404 if not present in the url or query |
+| IsNullable | Boolean | No | If true, this parameter is allowed to have a null value |
+| UrlEncode | Boolean | No | **Only applicable if `BsonType` = 2 (`String`)** If true, this parameter will be/stay url encoded for comparison |
+| Value | String | Yes | The value of the parameter, if set this will be used for comparison instead of the parameter value from the url or query (mainly used to set non user controllable constrains) |

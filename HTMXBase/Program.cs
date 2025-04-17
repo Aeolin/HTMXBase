@@ -81,6 +81,7 @@ builder.Services.AddScoped<IPaginationService<BsonDocument>, PaginationService<B
 builder.Services.AddScoped<IPaginationService<UserModel>, PaginationService<UserModel>>();
 builder.Services.AddScoped<IPaginationService<GroupModel>, PaginationService<GroupModel>>();
 builder.Services.AddScoped<IPaginationService<CollectionModel>, PaginationService<CollectionModel>>();
+builder.Services.AddScoped<IPaginationService<RouteTemplateModel>, PaginationService<RouteTemplateModel>>();
 builder.Services.AddModelEventChannel<ModelData<RouteTemplateModel>>();
 builder.Services.AddModelEventChannel<TemplateData>();
 builder.Services.AddEntityUpdateInterceptors();

@@ -27,6 +27,9 @@ namespace HTMXBase.Api.Models
 		public bool IsNullable { get; set; }
 
 		[UpdateProperty(MethodName = "ToUpdate")]
+		public bool UrlEncode { get; set; }
+
+		[UpdateProperty(MethodName = "ToUpdate")]
 		public string? Value { get; set; }
 	}
 }

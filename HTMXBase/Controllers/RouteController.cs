@@ -14,6 +14,7 @@ using AwosFramework.Generators.MongoDBUpdateGenerator.Extensions;
 using MongoDB.Driver.Linq;
 using System.Threading.Channels;
 using HTMXBase.Services.ModelEvents;
+using HTMXBase.Services.Pagination;
 
 namespace HTMXBase.Controllers
 {
@@ -22,26 +23,47 @@ namespace HTMXBase.Controllers
 	public class RouteController : HtmxBaseController
 	{
 		private readonly ChannelWriter<ModifyEvent<ModelData<RouteTemplateModel>>> _routeEvents;
+		private readonly IPaginationService<RouteTemplateModel> _routePaginationService;
 
-		public RouteController(IMongoDatabase dataBase, IMapper mapper, ChannelWriter<ModifyEvent<ModelData<RouteTemplateModel>>> routeEvents) : base(dataBase, mapper)
+		public RouteController(IMongoDatabase dataBase, IMapper mapper, ChannelWriter<ModifyEvent<ModelData<RouteTemplateModel>>> routeEvents, IPaginationService<RouteTemplateModel> routePaginationService) : base(dataBase, mapper)
 		{
 			_routeEvents=routeEvents;
+			_routePaginationService=routePaginationService;
 		}
 
 		[HttpGet]
-		[ProducesResponseType<CursorResult<ApiRouteTemplate[], ObjectId?>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<CursorResult<ApiRouteTemplate[], string>>(StatusCodes.Status200OK)]
 		[Permission("routes/get", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(RouteTemplateModel.CollectionName)]
 		public async Task<IActionResult> GetRoutesAsync([FromQuery] ObjectId? cursorNext = null, [FromQuery]ObjectId? cursorPrevious = null, [FromQuery][Range(1, 100)] int limit = 20)
 		{	
-			var data = await _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName)
-				.PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiRouteTemplate>);
+			var values = PaginationValues.FromRequest(HttpContext.Request);
+			var data = await _routePaginationService.PaginateAsync(values, _mapper.Map<RouteTemplateModel, ApiRouteTemplate>);
+			return Ok(data);
+		}
 
+		[HttpGet("search")]
+		[ProducesResponseType<CursorResult<ApiRouteTemplate[], string>>(StatusCodes.Status200OK)]
+		[Permission("routes/get", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(RouteTemplateModel.CollectionName)]
+		public async Task<IActionResult> GetRoutesAsync([FromQuery]string? regex = null)
+		{
+			var filter = Builders<RouteTemplateModel>.Filter.Empty;
+			if (!string.IsNullOrEmpty(regex))
+				filter = Builders<RouteTemplateModel>.Filter.Regex(x => x.UrlTemplate, new BsonRegularExpression(regex));
+
+			var values = PaginationValues.FromRequest(HttpContext.Request);
+			var data = await _routePaginationService.PaginateAsync(values, _mapper.Map<RouteTemplateModel, ApiRouteTemplate>, filter);
 			return Ok(data);
 		}
 
 		[HttpPost]
 		[ProducesResponseType<ApiRouteTemplate>(StatusCodes.Status200OK)]
 		[Permission("routes/create", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(RouteTemplateModel.CollectionName)]
 		public async Task<IActionResult> CreateRouteAsync([FromJsonOrForm] ApiRouteTemplateCreateRequest routeTemplate)
 		{
 			var model = _mapper.Map<RouteTemplateModel>(routeTemplate);
@@ -58,6 +80,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ApiRouteTemplate>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("routes/update", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(RouteTemplateModel.CollectionName)]
 		public async Task<IActionResult> AddFieldAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiFieldMatchModel field)
 		{
 			var model = _mapper.Map<FieldMatchModel>(field);
@@ -115,6 +139,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ApiRouteTemplate>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("routes/update", Constants.ADMIN_ROLE, Constants.BACKEND_USER)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(RouteTemplateModel.CollectionName)]
 		public async Task<IActionResult> UpdateRouteAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiRouteTemplate routeTemplate)
 		{
 			var collection = _db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
