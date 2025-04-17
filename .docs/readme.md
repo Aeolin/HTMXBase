@@ -622,6 +622,7 @@ form data for static content upload
 
 #### ApiUserUpdateRequest
 | Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
 | Username | String | Yes | The username of the user |
 | Email | String | Yes | The email of the user |
 | FirstName | String | Yes | The first name of the user |
