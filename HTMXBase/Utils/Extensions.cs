@@ -21,6 +21,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Primitives;
 
 namespace HTMXBase.Utils
 {
@@ -133,7 +134,21 @@ namespace HTMXBase.Utils
 			return tryParseMethod.CreateDelegate<TryParseDelegate<T>>();
 		}
 
-		public static V GetParsedValueOrDefault<V>(this IQueryCollection collection, string key, V defaultValue)
+		public static bool TryGetValue<K, V>(this IEnumerable<KeyValuePair<K, V>> collection, K key, [MaybeNullWhen(false)][NotNullWhen(true)] out V value)
+		{
+			foreach (var kvp in collection)
+			{
+				if (kvp.Key.Equals(key))
+				{
+					value = kvp.Value;
+					return true;
+				}
+			}
+			value = default;
+			return false;
+		}
+
+		public static V GetParsedValueOrDefault<V>(this IEnumerable<KeyValuePair<string, StringValues>> collection, string key, V defaultValue)
 		{
 			if (collection.TryGetValue(key, out var value))
 			{
@@ -152,8 +167,8 @@ namespace HTMXBase.Utils
 			return defaultValue;
 		}
 
-		public static V GetParsedValueOrDefault<V>(this IDictionary<string, object?> dict, string key, V defaultValue) => GetParsedValueOrDefault<string, V>(dict, key, defaultValue);
-		public static V GetParsedValueOrDefault<K, V>(this IDictionary<K, object?> dict, K key, V defaultValue)
+		public static V GetParsedValueOrDefault<V>(this IReadOnlyDictionary<string, object?> dict, string key, V defaultValue) => GetParsedValueOrDefault<string, V>(dict, key, defaultValue);
+		public static V GetParsedValueOrDefault<K, V>(this IReadOnlyDictionary<K, object?> dict, K key, V defaultValue)
 		{
 			if (dict.TryGetValue(key, out var value))
 			{

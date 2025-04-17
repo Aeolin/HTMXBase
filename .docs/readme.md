@@ -400,7 +400,7 @@ The api by default will respond in Json. If the Accept header is set to `text/ht
 
 | Method | SubPath | Content | Query | Response Type | Status Codes | Permission | Template Source | Description | 
 | ------ | ------- | ------- | ----- | ------------- | ------------ | ---------- | --------------- | ----------- |
-| Get | /groups | - |  `pagination` | [ApiGroup[]](#apigroup) | 200, 403  | admin/get-group | groups | Paginate over all groups |
+| Get | /groups | - |  `pagination` | [CursorResult](#cursorresult)<[ApiGroup](#apigroup), String>] | 200, 403  | admin/get-group | groups | Paginate over all groups |
 | Post | /groups | [ApiGroup](#apigroup) | - | [ApiGroup](#apigroup) | 200, 403 | admin/create-group | groups | Creates a new group and returns the created object | 
 | Delete | /groups/\{slug} | - | - | - | 200, 404, 403 | admin/delete-group | - | Deletes a group by slug |
 | Put | /groups/\{slug} | [ApiUpdateGroupRequest](#apiupdategrouprequest) | - | [ApiGroup](#apigroup) | 200, 404, 403 | admin/update-group | groups | Updates a group by slug |
@@ -408,8 +408,8 @@ The api by default will respond in Json. If the Accept header is set to `text/ht
 | Put | /group/\{slug}/permissions | [ApiSetPermissionRequest](#apisetpermissionrequest) | - | [ApiGroup](#apigroup) | 200, 404, 403 | admin/update-group | groups | Updates the permissions of a group by slug |
 | Delete | /group/\{slug}/permissions | [ApiSetPermissionRequest](#apisetpermissionrequest) | - | [ApiGroup](#apigroup) | 200, 404, 403 | admin/delete-group | groups | Deletes the permissions of a group by slug |
 | Get | /groups/\{slug}/permissions | - | - | string[] | 200, 404, 403 | admin/get-group | groups | Gets the permissions of a group by slug |
-| Get | /users | - |  `pagination` | [ApiUser[]](#apiuser) | 200, 403 | admin/get-user | users | Paginate over all users |
-| Get | /users/search | - | `pagination`, `name`, `email` | [ApiUser[]](#apiuser) | 200, 403 | admin/get-user | users | Paginate over all users filtered by partial match of email with the users email and name with the users FirstName, LastName and UserName |
+| Get | /users | - |  `pagination` | [CursorResult](#cursorresult)<[ApiUser](#apiuser), String> | 200, 403 | admin/get-user | users | Paginate over all users |
+| Get | /users/search | - | `pagination`, `name`, `email` | [CursorResult](#cursorresult)<[ApiUser](#apiuser), String> | 200, 403 | admin/get-user | users | Paginate over all users filtered by partial match of email with the users email and name with the users FirstName, LastName and UserName |
 | Get | /users/\{id} | - | - | [ApiUser](#apiuser) | 200, 404, 403 | admin/get-user | users | Gets a user by id |
 | Put | /users/\{id} | [ApiUser](#apiuser) | - | [ApiUser](#apiuser) | 200, 404, 403 | admin/update-user | users | Updates a user by id |
 | Get | /users/\{id}/groups | - | - | [ApiGroup[]](#apigroup) | 200, 404, 403 | admin/get-user | groups | Gets the groups of a user by id |
@@ -456,3 +456,91 @@ The api by default will respond in Json. If the Accept header is set to `text/ht
 | Name | Type | Nullable | Description |
 | ---- | ---- | -------- | ----------- |
 | Groups | String[] | Yes | The slugs of the groups to set or remove |
+
+### AuthController
+/api/v1/auth
+
+| Method | SubPath | Content | Query | Response Type | Status Codes | Permission | Template Source | Description |
+| ------ | ------- | ------- | ----- | ------------- | ------------ | ---------- | --------------- | ----------- |
+| Post | /register | [ApiRegisterRequest](#apiregisterrequest) | - | [ApiUser](#apiuser) | 200, 403 | - | - | Creates a new user and returns the created object |
+| Post | /login | [ApiLoginRequest](#apiloginrequest) | `useCookie` | String | 200, 403 | - | - | Logs in a user and returns the jwt or sets it as cookie based on the `useCookie` query parameter |
+| Get | /logout | - | - | - | 200, 403 | - | - | Logs out a user and deletes the cookie |
+| Post | /refresh-token | - | `useCookie` | String | 200, 403 | - | - | Refreshes the jwt and returns it or sets it as cookie based on the `useCookie` query parameter |
+
+#### ApiRegisterRequest
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Email | String | No | The email of the user |
+| Password | String | No | The password of the user |
+| Username | String | Yes | The username of the user, will be set to the email if null |
+| FirstName | String | Yes | The first name of the user |
+| LastName | String | Yes | The last name of the user |
+| AvatarUrl | String | Yes | The avatar of the user, will be set to the gravatar url if null |
+
+#### ApiLoginRequest
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| UsernameOrEmail | String | No | The email or username of the user |
+| Password | String | No | The password of the user |
+
+### CollectionController
+/api/v1/collections
+
+| Method | SubPath | Content | Query | Response Type | Status Codes | Permission | Template Source | Description |
+| ------ | ------- | ------- | ----- | ------------- | ------------ | ---------- | --------------- | ----------- |
+| Get | /\{collectionSlug}/paginate | - | `pagination` | [CursorResult](#cursorresult)<[BsonDocument](#bsondocument), String> | 200, 403 |  | collectionSlug | Paginate over all items in a collection |
+| Post | /\{colllectionSlug}/paginate | `pagination` from Form | - | [CursorResult](#cursorresult)<[BsonDocument](#bsondocument), String> | 200, 403 |  | collectionSlug | Paginate over all items in a collection |
+| Post | /\{collectionSlug} | [JsonDocument](#form-data) | - | [BsonDocument](#bsondocument) | 200, 403 |  | collectionSlug | Inserts a new item into a collection |
+| Put | /\{collectionSlug}/\{documentId} |  [JsonDocument](#form-data) | - | [BsonDocument](#bsondocument) | 200, 403 |  | collectionSlug | Updates an item in a collection |
+| Get | /\{collectionSlug}/\{documentId} | - | - | [BsonDocument](#bsondocument) | 200, 403 |  | collectionSlug | Gets an item in a collection |
+| Delete | /\{collectionSlug}/\{documentId} | - | - | - | 200, 403 |  | collectionSlug | Deletes an item in a collection |
+| Post | /\{collectionSlug}/query | [JsonDocument](#form-data) | `pagination` | [CursorResult](#cursorresult)<[BsonDocument](#bsondocument), String> | 200, 403 |  | collectionSlug | Paginate over all items in a collection using a mongodb filter |
+| Post | /\{collectionSlug}/templates | [ApiTemplate](#apitemplate), Optional FormFile named templateFile for template content | - | [ApiTemplate](#apitemplate) | 200, 403 | collections/create-template | - | Add a template to a collection |
+| Put | /\{collectionSlug}/templates/\{templateSlug} | [ApiTemplate](#apitemplate), Optional FormFile named templateFile for template content | - | [ApiTemplate](#apitemplate) | 200, 403 | collections/modify-template | - | Updates a template in a collection |
+| Delete | /\{collectionSlug}/templates/\{templateSlug} | - | - | - | 200, 403 | collections/delete-template | - | Deletes a template in a collection |
+| Put | /\{collectionSlug}/default-template/\{templateSlug} | - | - | - | 200, 403 | collections/modify | - | Sets the default template for a collection |
+| Put | /\{collectionSlug} | | [ApiCollectionUpdateRequest](#apicollection) | - | [ApiCollectionUpdateRequest](#apicollection) | 200, 403 | collections/modify | - | Updates a collection, Schema change is not supported yet, |
+| Get | / | - | - | [ApiCollection[]](#apicollection) | 200, 403 | collections/get | - | Gets all collections |
+| Get | /paginate | - | `pagination` | [CursorResult](#cursorresult)<[ApiCollection](#apicollection), String> | 200, 403 | collections/get | - | Paginate over all collections |
+| Post | /paginate | `pagination` from Form | - | [CursorResult](#cursorresult)<[ApiCollection](#apicollection), String> | 200, 403 | collections/get | - | Paginate over all collections |
+| Delete | /\{collectionSlug} | - | - | - | 200, 403 | collections/delete | - | Deletes a collection |
+| Post | /schema-as-file | [ApiCollection](#apicollection), FormFile named schemaFile containing the schema | - | [ApiCollection](#apicollection) | 200, 403 | collections/create | - | Creates a new collection and returns the created object |
+| Post | / | [ApiCollection](#apicollection) | - | [ApiCollection](#apicollection) | 200, 403 | collections/create | - | Creates a new collection and returns the created object |
+
+
+#### ApiTemplate
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Slug | String | No | The slug of the template |
+| SingleItem | Boolean | No | If this template is used to render a single item or a list of items |
+| Template | String | No | [handlebars](https://github.com/Handlebars-Net/Handlebars.Net) template code |
+| Disabled | Boolean | No | If this template is disabled or not. Disabled templates are not used to render the collection |
+
+#### ApiCollection
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Slug | String | No | The slug of the collection |
+| Name | String | No | The name of the collection |
+| CacheRetentionTime | Int | Yes | How long the templates should stay cached (not implemented yet, currently templates stay cached forever or until they change) |
+| Schema | JsonDocument | No | The schema of the collection |
+| Templates | [ApiTemplate[]](#apitemplate) | Yes | A list of templates that are associated with this collection. These templates are used to render the data in the collection. |
+| DefaultTemplate | String | Yes | The slug of the template to use by default if none is specified, if null api will return 404 if no template is specified in request |
+| IsInbuilt | Boolean | No | If this collection is inbuilt or user created. Inbuilt collections are not modifyable except for their templates. |
+| QueryPermission | String | Yes | No | Name of the permission required to paginate through entities in this collection. If null, no permission is required. |
+| InsertPermission | String | Yes | No | Name of the permission required to insert entities into this collection. If null, no permission is required. |
+| ModfiyPermission | String | Yes | No | Name of the permission required to modify entities in this collection. If null, no permission is required. |
+| DeletePermission | String | Yes | No | Name of the permission required to delete entities in this collection. If null, no permission is required. |
+| ComplexQueryPermission | String | Yes | No | Name of the permission required to use mongodb filters to paginate entities in this collection. If null, no permission is required. |
+
+#### ApiCollectionUpdateRequest
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Slug | String | No | The slug of the collection |
+| Name | String | No | The name of the collection |
+| CacheRetentionTime | Int | Yes | How long the templates should stay cached (not implemented yet, currently templates stay cached forever or until they change) |
+| DefaultTemplate | String | Yes | The slug of the template to use by default if none is specified, if null api will return 404 if no template is specified in request |
+| QueryPermission | String | Yes | No | Name of the permission required to paginate through entities in this collection. If null, no permission is required. |
+| InsertPermission | String | Yes | No | Name of the permission required to insert entities into this collection. If null, no permission is required. |
+| ModfiyPermission | String | Yes | No | Name of the permission required to modify entities in this collection. If null, no permission is required. |
+| DeletePermission | String | Yes | No | Name of the permission required to delete entities in this collection. If null, no permission is required. |
+| ComplexQueryPermission | String | Yes | No | Name of the permission required to use mongodb filters to paginate entities in this collection. If null, no permission is required. |

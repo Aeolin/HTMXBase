@@ -48,7 +48,7 @@ namespace HTMXBase.Controllers
 
 		[HttpPost("register")]
 		[AllowAnonymous]
-		public async Task<IActionResult> RegisterAsync([FromJsonOrForm] RegisterRequest request)
+		public async Task<IActionResult> RegisterAsync([FromJsonOrForm] ApiRegisterRequest request)
 		{
 			var user = new UserModel
 			{
@@ -90,7 +90,7 @@ namespace HTMXBase.Controllers
 
 		[HttpPost("login")]
 		[AllowAnonymous]
-		public async Task<IActionResult> LoginAsync([FromJsonOrForm] LoginRequest request, [FromQuery] bool useCookie = false)
+		public async Task<IActionResult> LoginAsync([FromJsonOrForm] ApiLoginRequest request, [FromQuery] bool useCookie = false)
 		{
 			var lowerEmailOrUser = request.UsernameOrEmail.ToLower();
 			var user = _db.GetCollection<UserModel>(UserModel.CollectionName).Find(x => x.Username == lowerEmailOrUser || x.Email == lowerEmailOrUser).FirstOrDefault();

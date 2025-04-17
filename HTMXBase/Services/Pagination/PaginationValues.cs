@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Unicode;
 using YamlDotNet.Core;
+using System.Text.RegularExpressions;
 
 namespace HTMXBase.Services.Pagination
 {
@@ -38,14 +39,27 @@ namespace HTMXBase.Services.Pagination
 		}
 
 
-		public static PaginationValues FromRequest(HttpContext ctx)
+		public static PaginationValues FromRequest(HttpRequest request, bool ignoreForm = false)
 		{
-			var cursorNext = ctx.Request.Query[CURSOR_NEXT_KEY].FirstOrDefault();
-			var cursorPrevious = ctx.Request.Query[CURSOR_PREV_KEY].FirstOrDefault();
-			var limit = ctx.Request.Query.GetParsedValueOrDefault<int>(LIMIT_KEY, 20);
-			var ascending = ctx.Request.Query.GetParsedValueOrDefault<bool>(ASCENDING_KEY, true);
-			var columns = ctx.Request.Query.GetParsedValueOrDefault<IEnumerable<string>>(COLUMNS_KEY, new[] { "_id" });
-			return new PaginationValues(cursorNext, cursorPrevious, limit, ascending, columns);
+			if (request.HasFormContentType && ignoreForm == false)
+			{
+				var form = request.Form;
+				var cursorNext = form.GetParsedValueOrDefault<string?>(CURSOR_NEXT_KEY, null);
+				var cursorPrevious = form.GetParsedValueOrDefault<string?>(CURSOR_PREV_KEY, null);
+				var limit = form.GetParsedValueOrDefault<int>(LIMIT_KEY, 20);
+				var ascending = form.GetParsedValueOrDefault<bool>(ASCENDING_KEY, true);
+				var columns = form.GetParsedValueOrDefault<IEnumerable<string>>(COLUMNS_KEY, new[] { "_id" });
+				return new PaginationValues(cursorNext, cursorPrevious, limit, ascending, columns);
+			}
+			else
+			{
+				var cursorNext = request.Query[CURSOR_NEXT_KEY].FirstOrDefault();
+				var cursorPrevious = request.Query[CURSOR_PREV_KEY].FirstOrDefault();
+				var limit = request.Query.GetParsedValueOrDefault<int>(LIMIT_KEY, 20);
+				var ascending = request.Query.GetParsedValueOrDefault<bool>(ASCENDING_KEY, true);
+				var columns = request.Query.GetParsedValueOrDefault<IEnumerable<string>>(COLUMNS_KEY, new[] { "_id" });
+				return new PaginationValues(cursorNext, cursorPrevious, limit, ascending, columns);
+			}
 		}
 
 		public static PaginationValues FromRouteMatch(RouteMatch match)
@@ -57,5 +71,6 @@ namespace HTMXBase.Services.Pagination
 			var columns = match.QueryValues.GetParsedValueOrDefault<IEnumerable<string>>(COLUMNS_KEY, new[] { "_id" });
 			return new PaginationValues(cursorNext, cursorPrevious, limit, ascending, columns);
 		}
+
 	}
 }

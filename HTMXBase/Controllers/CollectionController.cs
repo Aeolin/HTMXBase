@@ -19,6 +19,7 @@ using System.Text;
 using MongoDB.Bson.Serialization;
 using HTMXBase.Services.ModelEvents;
 using System.Threading.Channels;
+using HTMXBase.Services.Pagination;
 
 namespace HTMXBase.Controllers
 {
@@ -29,26 +30,22 @@ namespace HTMXBase.Controllers
 	{
 
 		private readonly ChannelWriter<ModifyEvent<TemplateData>> _templateEvents;
+		private readonly IPaginationService<BsonDocument> _paginationService;
+		private readonly IPaginationService<CollectionModel> _collectionModelPagination;
 
-		public CollectionController(IMongoDatabase dataBase, IMapper mapper, ChannelWriter<ModifyEvent<TemplateData>> templateEvents) : base(dataBase, mapper)
+		public CollectionController(IMongoDatabase dataBase, IMapper mapper, ChannelWriter<ModifyEvent<TemplateData>> templateEvents, IPaginationService<BsonDocument> paginationService, IPaginationService<CollectionModel> collectionModelPagination) : base(dataBase, mapper)
 		{
 			_templateEvents=templateEvents;
+			_paginationService=paginationService;
+			_collectionModelPagination=collectionModelPagination;
 		}
 
 		[HttpPost("{collectionSlug}/paginate")]
-		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
-		[ProducesResponseType(StatusCodes.Status403Forbidden)]
-		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		public Task<IActionResult> PaginateFormAsync(string collectionSlug, [FromForm][Range(1, 100)] int limit = 20, [FromForm] ObjectId? cursorNext = null, [FromForm] ObjectId? cursorPrevious = null)
-		{
-			return PaginateAsync(collectionSlug, limit, cursorNext, cursorPrevious);
-		}
-
 		[HttpGet("{collectionSlug}/paginate")]
-		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
-		public async Task<IActionResult> PaginateAsync(string collectionSlug, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorPrevious = null, [FromQuery] ObjectId? cursorNext = null)
+		[ProducesResponseType(StatusCodes.Status403Forbidden)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		public async Task<IActionResult> PaginateFormAsync(string collectionSlug)
 		{
 			var id = User?.GetIdentifierId();
 			var permissions = User.GetPermissions();
@@ -59,20 +56,8 @@ namespace HTMXBase.Controllers
 			if (collection == null)
 				return NoPermission("No permission to access collection");
 
-			var filterList = new List<FilterDefinition<BsonDocument>>();
-			if (collection.QueryPermission != null && permissions.Contains(collection.QueryPermission) == false)
-			{
-				if (id.HasValue)
-				{
-					filterList.Add(Builders<BsonDocument>.Filter.Eq(Constants.OWNER_ID_FIELD, id.Value));
-				}
-				else
-				{
-					return NoPermission("No permission to access collection");
-				}
-			}
-
-			var data = await _db.GetCollection<BsonDocument>(collectionSlug).PaginateAsync(limit, cursorNext, cursorPrevious, filterList);
+			var values = PaginationValues.FromRequest(HttpContext.Request);
+			var data = await _paginationService.PaginateAsync(collectionSlug, values);
 			return Ok(data);
 		}
 
@@ -163,12 +148,36 @@ namespace HTMXBase.Controllers
 			return Ok();
 		}
 
+		[HttpGet("{collectionSlug}/{documentId}")]
+		[ProducesResponseType(StatusCodes.Status403Forbidden)]
+		[ProducesResponseType(StatusCodes.Status200OK)]
+		public async Task<IActionResult> GetDocumentAsync(string collectionSlug, ObjectId documentId)
+		{
+			var permissions = User.GetPermissions();
+			var documentCollection = _db.GetCollection<BsonDocument>(collectionSlug);
+			var isOwner = await IsOwnerAsync(documentCollection, documentId);
+			if (isOwner == false)
+			{
+				var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
+					.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false &&
+					(x.QueryPermission == null || permissions.Contains(x.QueryPermission)))
+					.FirstOrDefaultAsync();
+
+				if (collection == null)
+					return NoPermission("No permission to delete data in collection");
+			}
+
+			var filter = Builders<BsonDocument>.Filter.Eq("_id", documentId);
+			var item = await _db.GetCollection<BsonDocument>(collectionSlug).Find(filter).FirstOrDefaultAsync();
+			return Ok(item);
+		}
+
 		[HttpPost("{collectionSlug}/query")]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromJsonOrForm] JsonDocument query, [FromQuery][Range(1, 100)] int limit = 20, [FromQuery] ObjectId? cursorNext = null, [FromQuery] ObjectId? cursorPrevious = null)
+		public async Task<IActionResult> QueryAsync(string collectionSlug, [FromJsonOrForm] JsonDocument query)
 		{
 			var id = User?.GetIdentifierId();
 			var permissions = User?.GetPermissions();
@@ -179,21 +188,9 @@ namespace HTMXBase.Controllers
 			if (collection == null)
 				return NoPermission("No permission to query collection");
 
-			var list = new List<FilterDefinition<BsonDocument>>();
-			list.Add(BsonDocument.Parse(query.RootElement.GetRawText()));
-			if (collection.QueryPermission != null && (permissions?.Contains(collection.ComplexQueryPermission) ?? false) == false)
-			{
-				if (id.HasValue)
-				{
-					list.Add(Builders<BsonDocument>.Filter.Eq(Constants.OWNER_ID_FIELD, id.Value));
-				}
-				else
-				{
-					return NoPermission("No permission to access collection");
-				}
-			}
-
-			var data = await _db.GetCollection<BsonDocument>(collectionSlug).PaginateAsync(limit, cursorNext, cursorPrevious, list);
+			var filter = BsonDocument.Parse(query.RootElement.GetRawText());
+			var values = PaginationValues.FromRequest(HttpContext.Request, true);
+			var data = await _paginationService.PaginateAsync(values, collectionSlug, filter);
 			return Ok(data);
 		}
 
@@ -289,7 +286,7 @@ namespace HTMXBase.Controllers
 		[Permission("collection/modify", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> UpdateCollectionAsync(string collectionSlug, [FromBody][FromForm] ApiCollection collection)
+		public async Task<IActionResult> UpdateCollectionAsync(string collectionSlug, [FromJsonOrForm] ApiCollection collection)
 		{
 			var collections = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
 			var filter = Builders<CollectionModel>.Filter.Where(x => x.Slug == collectionSlug && x.IsInbuilt == false);
@@ -313,24 +310,15 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpPost("paginate")]
-		[ProducesResponseType<CursorResult<ApiCollection[], ObjectId?>>(StatusCodes.Status200OK)]
-		[Permission("collections/list", Constants.BACKEND_USER, Constants.ADMIN_ROLE)]
-		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public Task<IActionResult> PaginateCollectionFormAsync([FromForm] ObjectId? cursorNext = null, [FromForm] ObjectId? cursorPrevious = null, [FromForm][Range(1, 100)] int limit = 20)
-		{
-			return PaginateCollectionAsync(cursorNext, cursorPrevious, limit);
-		}
-
-
 		[HttpGet("paginate")]
 		[ProducesResponseType<ObjectIdCursorResult<ApiCollection[]>>(StatusCodes.Status200OK)]
 		[Permission("collections/list")]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> PaginateCollectionAsync([FromQuery] ObjectId? cursorNext = null, [FromQuery] ObjectId? cursorPrevious = null, [FromQuery][Range(1, 100)] int limit = 20)
+		public async Task<IActionResult> PaginateCollectionAsync()
 		{
-			var data = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiCollection>);
+			var values = PaginationValues.FromRequest(HttpContext.Request);
+			var data = await _collectionModelPagination.PaginateAsync(values, _mapper.Map<CollectionModel, ApiCollection>);
 			return Ok(data);
 		}
 
