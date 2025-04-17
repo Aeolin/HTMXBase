@@ -399,7 +399,7 @@ The api by default will respond in Json. If the Accept header is set to `text/ht
 /api/v1/admin
 
 | Method | SubPath | Content | Query | Response Type | Status Codes | Permission | Template Source | Description | 
-| ------ | ------- | ---- | ----- | -------- | ------------ | ---------- | ----------- |
+| ------ | ------- | ------- | ----- | ------------- | ------------ | ---------- | --------------- | ----------- |
 | Get | /groups | - |  `pagination` | [ApiGroup[]](#apigroup) | 200, 403  | admin/get-group | groups | Paginate over all groups |
 | Post | /groups | [ApiGroup](#apigroup) | - | [ApiGroup](#apigroup) | 200, 403 | admin/create-group | groups | Creates a new group and returns the created object | 
 | Delete | /groups/\{slug} | - | - | - | 200, 404, 403 | admin/delete-group | - | Deletes a group by slug |
