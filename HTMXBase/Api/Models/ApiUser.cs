@@ -11,6 +11,7 @@ namespace HTMXBase.Api.Models
 	[MongoDBUpdate(typeof(UserModel), MethodName = "ToAdminUpdate")]
 	public class ApiUser
 	{
+		[UpdatePropertyIgnore]
 		public ObjectId Id { get; set; }
 
 		[UpdateProperty(ApplyToAllMethods = true)]

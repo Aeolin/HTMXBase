@@ -608,3 +608,19 @@ form data for static content upload
 | VirtualPath | String | Yes | The virtual path of the file if null default to '/' |
 | DeletePermission | String | Yes | The permission required to delete this file if null no permission is required |
 | ReadPermission | String | Yes | The permission required to read this file if null no permission is required |
+
+### UserController
+/api/v1/user
+
+| Method | SubPath | Content | Query | Response Type | Status Codes | Permission | Template Source | Description |
+| ------ | ------- | ------- | ----- | ------------- | ------------ | ---------- | --------------- | ----------- |
+| Get | /self | - | - | [ApiUser](#apiuser) | 200, 403 | user/get-self | users | Gets the current user |
+| Put | /self | [ApiUserUpdateRequest](#apiuserupdaterequest) | - | [ApiUser](#apiuser) | 200, 403 | user/modify-self | users | Updates the current user |
+
+#### ApiUserUpdateRequest
+| Name | Type | Nullable | Description |
+| Username | String | Yes | The username of the user |
+| Email | String | Yes | The email of the user |
+| FirstName | String | Yes | The first name of the user |
+| LastName | String | Yes | The last name of the user |
+| AvatarUrl | String | Yes | The avatar of the user |

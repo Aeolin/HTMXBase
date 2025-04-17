@@ -24,6 +24,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ApiUser>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("user/get-self", Constants.USER_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> GetCurrentUserAsync()
 		{
 			var id = User.GetIdentifierId();
@@ -39,6 +41,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ApiUser>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("user/modify-self", Constants.USER_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> UpdateCurrentUserAsync([FromJsonOrForm] ApiUser user)
 		{
 			var id = User.GetIdentifierId();
