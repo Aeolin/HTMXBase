@@ -19,10 +19,10 @@ namespace HTMXBase.Database.Models
 		public required string UrlTemplate { get; set; }
 
 		public string? VirtualPathTemplate { get; set; }
-		public string? RedirectUrl { get; set; }
+		public string? RedirectUrlTemplate { get; set; }
 		public string? CollectionSlug { get; set; }
 		public string? TemplateSlug { get; set; }
-		public string? StaticTemplate { get; set; }
+		public string? BaseTemplatePathTemplate { get; set; }
 		public bool Paginate { get; set; }
 
 		[Range(1, 250)]
@@ -36,10 +36,12 @@ namespace HTMXBase.Database.Models
 
 		[BsonIgnore]
 		[JsonIgnore]
+		[MemberNotNullWhen(true, nameof(VirtualPathTemplate))]
 		public bool IsStaticContentAlias => string.IsNullOrEmpty(VirtualPathTemplate) == false;
 
 		[BsonIgnore]
 		[JsonIgnore]
-		public bool IsRedirect => string.IsNullOrEmpty(RedirectUrl) == false;
+		[MemberNotNullWhen(true, nameof(RedirectUrlTemplate))]
+		public bool IsRedirect => string.IsNullOrEmpty(RedirectUrlTemplate) == false;
 	}
 }

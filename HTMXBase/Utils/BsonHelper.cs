@@ -1,4 +1,5 @@
-﻿using Markdig.Parsers;
+﻿using HTMXBase.Database.Models;
+using Markdig.Parsers;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson;
 using Namotion.Reflection;
@@ -44,6 +45,9 @@ namespace HTMXBase.Utils
 
 
 
+		public static bool TryParseFromBsonType(UrlQueryBsonType type, string rawValue, out object? value, TryParseDelegate<DateTime> dtParser = null) => TryParseFromBsonType((BsonType)type, rawValue, out value, dtParser);
+
+
 		public static bool TryParseFromBsonType(BsonType type, string rawValue, out object? value, TryParseDelegate<DateTime> dtParser = null)
 		{
 			dtParser ??= ParseDateTimeDetect;
@@ -53,8 +57,9 @@ namespace HTMXBase.Utils
 				return true;
 			}
 
-			(bool success, object value) result = type switch
+			(bool success, object? value) result = type switch
 			{
+				BsonType.Null => (true, null),
 				BsonType.String => (true, rawValue),
 				BsonType.Int32 => (int.TryParse(rawValue, out var i), i),
 				BsonType.Int64 => (long.TryParse(rawValue, out var l), l),

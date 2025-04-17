@@ -51,7 +51,6 @@ builder.Services.AddSingleton<IHandlebars>(HandlebarsEx.Create(cfg =>
 	cfg.UseCollectionMemberAliasProvider();
 }));
 
-
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddSingleton<PasswordHasher<UserModel>>();
 
@@ -80,6 +79,7 @@ builder.Services.AddScoped<IMongoDatabase>(x =>
 
 builder.Services.AddScoped<IPaginationService<BsonDocument>, PaginationService<BsonDocument>>();
 builder.Services.AddScoped<IPaginationService<UserModel>, PaginationService<UserModel>>();
+builder.Services.AddScoped<IPaginationService<GroupModel>, PaginationService<GroupModel>>();
 builder.Services.AddModelEventChannel<ModelData<RouteTemplateModel>>();
 builder.Services.AddModelEventChannel<TemplateData>();
 builder.Services.AddEntityUpdateInterceptors();

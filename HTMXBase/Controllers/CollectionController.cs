@@ -39,7 +39,7 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ObjectIdCursorResult<JsonDocument>>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status403Forbidden)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
-		public Task<IActionResult> PaginateFormAsync(string collectionSlug, [FromForm][Range(1, 100)] int limit = 20, [FromForm] ObjectId? cursorNext = null,[FromForm]ObjectId? cursorPrevious = null)
+		public Task<IActionResult> PaginateFormAsync(string collectionSlug, [FromForm][Range(1, 100)] int limit = 20, [FromForm] ObjectId? cursorNext = null, [FromForm] ObjectId? cursorPrevious = null)
 		{
 			return PaginateAsync(collectionSlug, limit, cursorNext, cursorPrevious);
 		}
@@ -52,12 +52,15 @@ namespace HTMXBase.Controllers
 		{
 			var id = User?.GetIdentifierId();
 			var permissions = User.GetPermissions();
-			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false).FirstOrDefaultAsync();
+			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
+				.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false)
+				.FirstOrDefaultAsync();
+
 			if (collection == null)
-				return NoPermission("No permission to access collection");		
+				return NoPermission("No permission to access collection");
 
 			var filterList = new List<FilterDefinition<BsonDocument>>();
-			if(collection.QueryPermission != null && permissions.Contains(collection.QueryPermission) == false)
+			if (collection.QueryPermission != null && permissions.Contains(collection.QueryPermission) == false)
 			{
 				if (id.HasValue)
 				{
@@ -65,7 +68,7 @@ namespace HTMXBase.Controllers
 				}
 				else
 				{
-				return NoPermission("No permission to access collection");
+					return NoPermission("No permission to access collection");
 				}
 			}
 
@@ -80,7 +83,11 @@ namespace HTMXBase.Controllers
 		public async Task<IActionResult> CreateDocumentAsync(string collectionSlug, [FromJsonOrForm] JsonDocument document)
 		{
 			var permissions = User.GetPermissions();
-			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && (x.InsertPermission == null || permissions.Contains(x.InsertPermission))).FirstOrDefaultAsync();
+			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
+				.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && 
+				(x.InsertPermission == null || permissions.Contains(x.InsertPermission)))
+				.FirstOrDefaultAsync();
+			
 			if (collection == null)
 				return NoPermission("No permission to insert data into collection");
 
@@ -102,7 +109,7 @@ namespace HTMXBase.Controllers
 				builder.Eq(Constants.OWNER_ID_FIELD, ownerId)
 			);
 
-			return (await documentCollection.CountDocumentsAsync(docFilter) == 0);
+			return (await documentCollection.CountDocumentsAsync(docFilter)) > 0;
 		}
 
 		[HttpPut("{collectionSlug}/{documentId}")]
@@ -114,10 +121,10 @@ namespace HTMXBase.Controllers
 		{
 			var permissions = User.GetPermissions();
 			var documentCollection = _db.GetCollection<BsonDocument>(collectionSlug);
-				var collectionMeta = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
-					.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false &&
-					(x.ModifyPermission == null || permissions.Contains(x.ModifyPermission)))
-					.FirstOrDefaultAsync();
+			var collectionMeta = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
+				.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false &&
+				(x.ModifyPermission == null || permissions.Contains(x.ModifyPermission)))
+				.FirstOrDefaultAsync();
 
 			var isOwner = await IsOwnerAsync(documentCollection, documentId);
 			if (isOwner == false)
@@ -140,13 +147,13 @@ namespace HTMXBase.Controllers
 			var permissions = User.GetPermissions();
 			var documentCollection = _db.GetCollection<BsonDocument>(collectionSlug);
 			var isOwner = await IsOwnerAsync(documentCollection, documentId);
-			if (isOwner == false)	
+			if (isOwner == false)
 			{
 				var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
-					.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false && 
+					.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false &&
 					(x.DeletePermission == null || permissions.Contains(x.DeletePermission)))
 					.FirstOrDefaultAsync();
-				
+
 				if (collection == null)
 					return NoPermission("No permission to delete data in collection");
 			}
@@ -165,7 +172,10 @@ namespace HTMXBase.Controllers
 		{
 			var id = User?.GetIdentifierId();
 			var permissions = User?.GetPermissions();
-			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).Find(x => x.Slug == collectionSlug && x.IsInbuilt == false).FirstOrDefaultAsync();
+			var collection = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName)
+				.Find(x => x.Slug == collectionSlug && x.IsInbuilt == false)
+				.FirstOrDefaultAsync();
+			
 			if (collection == null)
 				return NoPermission("No permission to query collection");
 
@@ -318,8 +328,8 @@ namespace HTMXBase.Controllers
 		[Permission("collections/list")]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
 		[EndpointMongoCollection(CollectionModel.CollectionName)]
-		public async Task<IActionResult> PaginateCollectionAsync([FromQuery] ObjectId? cursorNext = null, [FromQuery]ObjectId? cursorPrevious = null, [FromQuery][Range(1, 100)] int limit = 20)
-		{	
+		public async Task<IActionResult> PaginateCollectionAsync([FromQuery] ObjectId? cursorNext = null, [FromQuery] ObjectId? cursorPrevious = null, [FromQuery][Range(1, 100)] int limit = 20)
+		{
 			var data = await _db.GetCollection<CollectionModel>(CollectionModel.CollectionName).PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiCollection>);
 			return Ok(data);
 		}
@@ -396,7 +406,7 @@ namespace HTMXBase.Controllers
 				return BadRequest("Collection with slug already exists");
 
 			var model = _mapper.Map<CollectionModel>(collection);
-				
+
 			var schema = BsonDocument.Parse(collection.Schema.RootElement.GetRawText());
 			if (schema.TryGetElement("properties", out var propertiesElement) == false || propertiesElement.Value is not BsonDocument properties)
 			{

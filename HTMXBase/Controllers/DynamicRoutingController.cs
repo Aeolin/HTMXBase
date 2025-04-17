@@ -36,7 +36,7 @@ namespace HTMXBase.Controllers
 			_pagination=pagination;
 		}
 
-		private ICollection<FilterDefinition<BsonDocument>> BuildFilter(RouteTemplateModel template, Dictionary<string, object?> filter)
+		private ICollection<FilterDefinition<BsonDocument>> BuildFilter(RouteTemplateModel template, IReadOnlyDictionary<string, object?> filter)
 		{
 			var builder = Builders<BsonDocument>.Filter;
 			var filterList = new List<FilterDefinition<BsonDocument>>();
@@ -80,6 +80,10 @@ namespace HTMXBase.Controllers
 						case MatchKind.SmallerOrEqual:
 							filterList.Add(builder.Lte(field.DocumentFieldName, value));
 							break;
+
+						case MatchKind.Regex:
+							filterList.Add(builder.Regex(field.DocumentFieldName, new BsonRegularExpression((string)value)));
+							break;
 					}
 				}
 				else if (field.IsOptional == false)
@@ -91,21 +95,21 @@ namespace HTMXBase.Controllers
 			return filterList;
 		}
 
-		private async Task<string> HandleStaticTemplateAsync(string? staticTemplate, UserModel? user, string rendered)
+		private async Task<string> HandleBaseTemplateAsync(string? staticTemplate, UserModel? user, string rendered)
 		{
-			if(string.IsNullOrEmpty(staticTemplate))
+			if (string.IsNullOrEmpty(staticTemplate))
 				return rendered;
 
-			var template = await _templateStore.GetStaticTemplateAsync(staticTemplate, HttpContext.RequestAborted);
+			var template = await _templateStore.GetStaticContentTemplateAsync(staticTemplate, HttpContext.RequestAborted);
 			if (template == null)
 				return rendered;
 
 			var ctx = new TemplateContext(user, rendered);
-			return template(ctx);	
+			return template(ctx);
 		}
 
 		private async Task<IActionResult> HandleFile(string? path, ObjectId? ownerId, FrozenSet<string>? permissions, string? staticTemplate = null)
-		{	
+		{
 			var collection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
 			var file = await collection.FindByPath(path).FirstOrDefaultAsync(HttpContext.RequestAborted);
 			if (file == null)
@@ -131,7 +135,7 @@ namespace HTMXBase.Controllers
 				using var innerReader = new StreamReader(content);
 				var rendered = await innerReader.ReadToEndAsync();
 				var user = await GetUserAsync();
-				rendered = await HandleStaticTemplateAsync(staticTemplate, user, rendered);
+				rendered = await HandleBaseTemplateAsync(staticTemplate, user, rendered);
 				return File(Encoding.UTF8.GetBytes(rendered), template.MimeType);
 			}
 			else
@@ -158,11 +162,11 @@ namespace HTMXBase.Controllers
 				return NotFound();
 
 			var routeMatch = mRouteMatch.Value;
-			if (routeMatch.RouteTemplateModel.IsRedirect)
-				return Redirect(routeMatch.RouteTemplateModel.RedirectUrl!);
+			if (routeMatch.IsRedirect)
+				return Redirect(routeMatch.ConstructedUrl);
 
 			if (routeMatch.IsStaticContentAlias)
-				return await HandleFile(routeMatch.StaticContentAlias!, ownerId, permissions, routeMatch.RouteTemplateModel.StaticTemplate) ?? NotFound();
+				return await HandleFile(routeMatch.ConstructedUrl, ownerId, permissions, routeMatch.RouteTemplateModel.BaseTemplatePathTemplate) ?? NotFound();
 
 
 			var collectionCollection = _db.GetCollection<CollectionModel>(CollectionModel.CollectionName);
@@ -191,7 +195,7 @@ namespace HTMXBase.Controllers
 			{
 				var filter = Extensions.CombineFilters(null, filters);
 				var doc = await collection.Find(filter).FirstOrDefaultAsync(HttpContext.RequestAborted);
-				if(doc == null)
+				if (doc == null)
 					return NotFound();
 
 				data = BsonSerializer.Deserialize<Dictionary<string, object>>(doc);
@@ -200,7 +204,9 @@ namespace HTMXBase.Controllers
 			var user = await GetUserAsync();
 			var templateContext = new TemplateContext(user, data);
 			var rendered = template(templateContext);
-			rendered = await HandleStaticTemplateAsync(routeMatch.RouteTemplateModel.StaticTemplate, user, rendered);
+			if (routeMatch.HasBaseTemplate)
+				rendered = await HandleBaseTemplateAsync(routeMatch.ConstructedBaseTemplatePath, user, rendered);
+
 			return Content(rendered, "text/html");
 		}
 	}

@@ -2,8 +2,7 @@ services:
   htmxbase:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_HTTP_PORTS=8080
-      - CONNECTIONSTRINGS__MongoDB=mongodb://mongodb:27017/htmxbase 
+      - ASPNETCORE_HTTP_PORTS=8080 
     ports:
       - "8080"
     volumes:

@@ -10,5 +10,6 @@
 		SmallerThan,
 		LargerOrEqual,
 		SmallerOrEqual,
+		Regex
 	}
 }

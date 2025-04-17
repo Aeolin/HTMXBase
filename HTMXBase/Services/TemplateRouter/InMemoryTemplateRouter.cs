@@ -11,6 +11,7 @@ using HTMXBase.Utils;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using System.Web;
+using System.Collections.Specialized;
 
 namespace HTMXBase.Services.TemplateRouter
 {
@@ -27,14 +28,14 @@ namespace HTMXBase.Services.TemplateRouter
 		{
 			_scope = provider.CreateScope();
 			_provider = _scope.ServiceProvider;
-			var db =_provider.GetRequiredService<IMongoDatabase>();
+			var db = _provider.GetRequiredService<IMongoDatabase>();
 			_routes = db.GetCollection<RouteTemplateModel>(RouteTemplateModel.CollectionName);
 			_eventsReader=eventsReader;
 		}
 
 		private void RemoveFromTree(ObjectId id)
 		{
-			if(_routeTempltes.TryGetValue(id, out var routeTemplateModel) == false)
+			if (_routeTempltes.TryGetValue(id, out var routeTemplateModel) == false)
 				return;
 
 			var path = routeTemplateModel.UrlTemplate.Split("/");
@@ -55,7 +56,7 @@ namespace HTMXBase.Services.TemplateRouter
 
 		private void InsertIntoTree(RouteTemplateModel? routeTemplateModel)
 		{
-			if(routeTemplateModel == null)
+			if (routeTemplateModel == null)
 				return;
 
 			var path = routeTemplateModel.UrlTemplate.Split("/", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -96,7 +97,7 @@ namespace HTMXBase.Services.TemplateRouter
 			await base.StopAsync(cancellationToken);
 		}
 
-		private static readonly Regex VirtualPathTemplatePattern = new Regex(@"(?:\/|^|$)\{(\S*)\}(?:\/|^|$)", RegexOptions.Compiled);
+		private static readonly Regex ParameterPattern = new Regex(@"\{(\S*)\}", RegexOptions.Compiled);
 
 		private bool TryParseRouteTemplate(RouteTemplateModel model, Dictionary<string, StringValues> raw, out RouteMatch? match)
 		{
@@ -105,13 +106,13 @@ namespace HTMXBase.Services.TemplateRouter
 			{
 				foreach (var field in model.Fields)
 				{
-					if (raw.TryGetValue(field.ParameterName, out var rawValues) == false && field.IsOptional == false)
+					if (raw.TryGetValue(field.ParameterName, out var rawValues) == false && string.IsNullOrEmpty(field.Value) && field.IsOptional == false)
 					{
 						match = null;
 						return false;
 					}
 
-					var rawValue = rawValues.FirstOrDefault();
+					var rawValue = field.Value ?? rawValues.FirstOrDefault();
 					if (string.IsNullOrEmpty(rawValue))
 					{
 						if (field.IsNullable)
@@ -130,7 +131,7 @@ namespace HTMXBase.Services.TemplateRouter
 						return false;
 					}
 
-					if(value is string stringValue && field.UrlEncode)
+					if (value is string stringValue && field.UrlEncode)
 						value = HttpUtility.UrlEncode(stringValue);
 
 					parsed[field.ParameterName] = value;
@@ -138,29 +139,69 @@ namespace HTMXBase.Services.TemplateRouter
 
 				if (model.Paginate)
 				{
-					foreach(var paginationKey in PaginationValues.PAGINATION_VALUES)
+					foreach (var paginationKey in PaginationValues.PAGINATION_VALUES)
 					{
-						if(raw.TryGetValue(paginationKey, out var rawValues))
+						if (raw.TryGetValue(paginationKey, out var rawValues))
 						{
 							parsed[paginationKey] = paginationKey == PaginationValues.COLUMNS_KEY ? rawValues : rawValues.FirstOrDefault();
 						}
 					}
 				}
 			}
-	
-			var collectionSlug = model?.CollectionSlug ?? raw.GetValueOrDefault("collectionSlug");
-			var templateSlug = model.TemplateSlug ?? raw.GetValueOrDefault("templateSlug");
-			if (model.IsStaticContentAlias)
+
+			var collectionSlug = model.CollectionSlug ?? raw.GetValueOrDefault("collectionSlug");
+			if (string.IsNullOrEmpty(collectionSlug))
 			{
-				var constructedAlias = VirtualPathTemplatePattern.Replace(model.VirtualPathTemplate!, (x) => raw[x.Groups[1].Value]);
-				match = new RouteMatch(constructedAlias, model);
+				match = null;
+				return false;
+			}
+
+
+			bool allReplaced = true;
+			var templateSlug = model.TemplateSlug ?? raw.GetValueOrDefault("templateSlug");
+			var baseTemplatePath = model.BaseTemplatePathTemplate;
+			if(string.IsNullOrEmpty(baseTemplatePath) == false)
+				baseTemplatePath = ParameterPattern.Replace(baseTemplatePath, (x) => GetValueOrFlag(raw, x.Groups[1].Value, ref allReplaced));
+			
+			if(allReplaced == false) // early exit
+			{
+				match = null;
+				return false;
+			}
+
+			if (model.IsRedirect)
+			{
+				var constructedRedirect = ParameterPattern.Replace(model.RedirectUrlTemplate, (x) => GetValueOrFlag(raw, x.Groups[1].Value, ref allReplaced));
+				match = new RouteMatch(constructedRedirect, true, false, baseTemplatePath,  model);
+			}
+			else if (model.IsStaticContentAlias)
+			{
+				var constructedAlias = ParameterPattern.Replace(model.VirtualPathTemplate, (x) => GetValueOrFlag(raw, x.Groups[1].Value, ref allReplaced));
+				match = new RouteMatch(constructedAlias, false, true, baseTemplatePath, model);
 			}
 			else
 			{
-				match = new RouteMatch(collectionSlug, templateSlug, parsed, model);
+				match = new RouteMatch(collectionSlug, templateSlug, parsed, baseTemplatePath, model);
 			}
 
-			return true;
+			return allReplaced;
+		}
+
+		string GetValueOrFlag(Dictionary<string, StringValues> values, string key, ref bool flag)
+		{
+			if(values.TryGetValue(key, out var strings))
+			{
+				if(strings.Count == 0 || string.IsNullOrEmpty(strings[0]))
+				{
+					flag = false;
+					return string.Empty;
+				}
+
+				return strings[0]!;
+			}
+
+			flag = false;
+			return string.Empty;
 		}
 
 		public bool TryRoute(HttpContext context, out RouteMatch? match)

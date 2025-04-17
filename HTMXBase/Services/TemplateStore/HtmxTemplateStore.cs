@@ -174,7 +174,7 @@ namespace HTMXBase.Services.TemplateStore
 
 		public bool HasDefaultTemplate(string collectionId) => HasTemplate(collectionId);
 
-		public  async Task<HandlebarsTemplate<object, object>?> GetStaticTemplateAsync(string identifier, CancellationToken token = default)
+		public  async Task<HandlebarsTemplate<object, object>?> GetStaticContentTemplateAsync(string identifier, CancellationToken token = default)
 		{
 			if (string.IsNullOrEmpty(identifier))
 				return null;

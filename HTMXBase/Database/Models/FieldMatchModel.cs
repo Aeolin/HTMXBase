@@ -13,9 +13,10 @@ namespace HTMXBase.Database.Models
 		public required string ParameterName { get; set; }
 		public required string DocumentFieldName { get; set; }
 		public MatchKind MatchKind { get; set; }
-		public BsonType BsonType { get; set; }
+		public UrlQueryBsonType BsonType { get; set; }
 		public bool IsOptional { get; set; }
 		public bool IsNullable { get; set; }
 		public bool UrlEncode { get; set; }
+		public string? Value { get; set; }
 	}
 }

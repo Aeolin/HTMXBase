@@ -75,6 +75,7 @@ namespace HTMXBase.Controllers
 			return Ok();
 		}
 
+
 		[HttpPost]
 		[ProducesResponseType<string>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -113,7 +114,7 @@ namespace HTMXBase.Controllers
 			var collection = _db.GetCollection<StaticContentModel>(StaticContentModel.CollectionName);
 			var ownerId = User.GetIdentifierId();
 
-			var permissions = User.FindAll(Constants.PERMISSION_CLAIM).Select(x => x.Value).ToArray();
+			var permissions = User.GetPermissions();
 			var result = await collection.FindOneAndDeleteAsync(x => x.Id == id && (x.OwnerId == ownerId || (x.DeletePermission != null && permissions.Contains(x.DeletePermission))));
 			if (result == null)
 				return NotFound();

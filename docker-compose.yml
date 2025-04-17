@@ -5,6 +5,11 @@ services:
       context: .
       dockerfile: HTMXBase/Dockerfile
     hostname: htmxbase
+    environment:
+      - CONNECTIONSTRINGS__MongoDB=mongodb://mongodb:27017/htmxbase 
+      - FLATFILESTORAGE__STORAGEPATH=/content/uploaded
+    volumes:
+      - htmxbase_content:/content  
     depends_on:
       - mongodb
 
@@ -53,4 +58,6 @@ services:
 
 volumes:
   mongodb_data:
+    driver: local
+  htmxbase_content:
     driver: local

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+﻿ using AutoMapper;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
@@ -21,13 +21,15 @@ namespace HTMXBase.Controllers
 	public class AdminController : HtmxBaseController
 	{
 	
-		private readonly IPaginationService<UserModel> _paginationService;
+		private readonly IPaginationService<UserModel> _userPaginationService;
+		private readonly IPaginationService<GroupModel> _groupPaginationService;
 
-		public AdminController(IMongoDatabase dataBase, IMapper mapper, IPaginationService<UserModel> paginationService) : base(dataBase, mapper)
+		public AdminController(IMongoDatabase dataBase, IMapper mapper, IPaginationService<UserModel> paginationService, IPaginationService<GroupModel> groupPaginationService) : base(dataBase, mapper)
 		{
-			_paginationService=paginationService;
+			_userPaginationService=paginationService;
+			_groupPaginationService=groupPaginationService;
 		}
-	
+
 		private async IAsyncEnumerable<ApiUser> ToApiUserAsync(IEnumerable<UserModel> users)
 		{
 			var groups = users.SelectMany(x => x.Groups).Distinct();
@@ -51,20 +53,22 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpGet("groups")]
-		[ProducesResponseType<ObjectIdCursorResult<ApiGroup[]>>(StatusCodes.Status200OK)]
+		[ProducesResponseType<CursorResult<ApiGroup, string>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-group", Constants.ADMIN_ROLE)]
-		public async Task<IActionResult> ListGroupsAsync([FromQuery][Range(1, 100)]int limit = 20, [FromQuery]ObjectId? cursorNext = null, [FromQuery]ObjectId? cursorPrevious = null) 
-		{
-			var data = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
-				.PaginateAsync(limit, cursorNext, cursorPrevious, x => x.Id, _mapper.Map<ApiGroup>);
-
-			return Ok(data);
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
+		public async Task<IActionResult> ListGroupsAsync() 
+		{			
+			var result = await _groupPaginationService.PaginateAsync<ApiGroup>(PaginationValues.FromRequest(HttpContext), _mapper.Map<ApiGroup>);
+			return Ok(result);
 		}
 
 		[HttpPost("groups")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
 		[Permission("admin/create-group", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> CreateGroupAsync([FromJsonOrForm] ApiGroup group)
 		{
 			var model = _mapper.Map<GroupModel>(group);
@@ -89,6 +93,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> UpdateGroupAsync([FromRoute] string slug, [FromJsonOrForm] ApiGroupUpdateRequest update)
 		{	
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
@@ -104,6 +110,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ApiGroup>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/get-group", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> GetGroupAsync([FromRoute] string slug)
 		{
 			var group = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => x.Slug == slug).FirstOrDefaultAsync();
@@ -117,6 +125,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> UpdateGroupPermissionsAsync([FromRoute] string slug, [FromJsonOrForm] ApiSetPermissionRequest permissions)
 		{
 			var update = permissions.ToGroupAddPermission();
@@ -130,9 +140,11 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpDelete("groups/{slug}/permissions")]
-		[ProducesResponseType(StatusCodes.Status200OK)]
+		[ProducesResponseType<ApiGroup>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-group", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> RemoveGroupPermissionsAsync([FromRoute] string slug, [FromJsonOrForm] ApiSetPermissionRequest permissions)
 		{
 			var result = await _db.GetCollection<GroupModel>(GroupModel.CollectionName)
@@ -148,6 +160,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<string[]>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/get-group", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> GetGroupPermissionsAsync([FromRoute] string slug)
 		{
 			var group = await _db.GetCollection<GroupModel>(GroupModel.CollectionName).Find(x => x.Slug == slug).FirstOrDefaultAsync();
@@ -160,16 +174,20 @@ namespace HTMXBase.Controllers
 		[HttpGet("users")]
 		[ProducesResponseType<ObjectIdCursorResult<ApiUser[]>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> ListUsersAsync()
 		{
 			var paginationValues = PaginationValues.FromRequest(HttpContext);
-			var data = await _paginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync);
+			var data = await _userPaginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync);
 			return Ok(data);
 		}
 
 		[HttpGet("users/search")]
 		[ProducesResponseType<ObjectIdCursorResult<ApiUser[]>>(StatusCodes.Status200OK)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> FindUsersAsync([FromQuery]string? name = null, [FromQuery]string? email = null)
 		{
 			var b = Builders<UserModel>.Filter;
@@ -186,7 +204,7 @@ namespace HTMXBase.Controllers
 
 			var filter = list.Count > 1 ? b.Or(list) : list.FirstOrDefault();
 			var paginationValues = PaginationValues.FromRequest(HttpContext);
-			var users = await _paginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync, filter);
+			var users = await _userPaginationService.PaginateAsync<ApiUser>(paginationValues, ToApiUserAsync, filter);
 			return Ok(users);
 		}
 
@@ -194,6 +212,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ApiUser>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> GetUserAsync([FromRoute] ObjectId id)
 		{
 			var user = await _db.GetCollection<UserModel>(UserModel.CollectionName).Find(x => x.Id == id).FirstOrDefaultAsync();
@@ -208,6 +228,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> UpdateUserAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiUser update)
 		{
 			var result = await _db.GetCollection<UserModel>(UserModel.CollectionName)
@@ -224,6 +246,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType<ApiGroup[]>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/get-user", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(GroupModel.CollectionName)]
 		public async Task<IActionResult> GetUserGroupsAsync([FromRoute] ObjectId id)
 		{
 			var user = await _db.GetCollection<UserModel>(UserModel.CollectionName).Find(x => x.Id == id).FirstOrDefaultAsync();
@@ -238,6 +262,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> UpdateUserGroupsAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiSetGroupRequest groups)
 		{
 			var result = await _db.GetCollection<UserModel>(UserModel.CollectionName)
@@ -254,6 +280,8 @@ namespace HTMXBase.Controllers
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
+		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
+		[EndpointMongoCollection(UserModel.CollectionName)]
 		public async Task<IActionResult> RemoveUserGroupsAsync([FromRoute] ObjectId id, [FromJsonOrForm] ApiSetGroupRequest groups)
 		{
 			var result = await _db.GetCollection<UserModel>(UserModel.CollectionName)

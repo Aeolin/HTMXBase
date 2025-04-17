@@ -18,12 +18,15 @@ namespace HTMXBase.Api.Models
 		public MatchKind MatchKind { get; set; }
 		
 		[UpdateProperty(MethodName = "ToUpdate")]
-		public BsonType BsonType { get; set; }
+		public UrlQueryBsonType BsonType { get; set; }
 		
 		[UpdateProperty(MethodName = "ToUpdate")]
 		public bool IsOptional { get; set; }
 		
 		[UpdateProperty(MethodName = "ToUpdate")]
 		public bool IsNullable { get; set; }
+
+		[UpdateProperty(MethodName = "ToUpdate")]
+		public string? Value { get; set; }
 	}
 }
