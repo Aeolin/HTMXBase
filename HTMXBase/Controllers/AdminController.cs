@@ -259,7 +259,7 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpPut("users/{id}/groups")]
-		[ProducesResponseType(StatusCodes.Status200OK)]
+		[ProducesResponseType<ApiUser>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]
@@ -277,7 +277,7 @@ namespace HTMXBase.Controllers
 		}
 
 		[HttpDelete("users/{id}/groups")]
-		[ProducesResponseType(StatusCodes.Status200OK)]
+		[ProducesResponseType<ApiUser>(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
 		[Permission("admin/update-user", Constants.ADMIN_ROLE)]
 		[EndpointGroupName(Constants.HTMX_ENDPOINT)]

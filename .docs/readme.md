@@ -413,14 +413,46 @@ The api by default will respond in Json. If the Accept header is set to `text/ht
 | Get | /users/\{id} | - | - | [ApiUser](#apiuser) | 200, 404, 403 | admin/get-user | users | Gets a user by id |
 | Put | /users/\{id} | [ApiUser](#apiuser) | - | [ApiUser](#apiuser) | 200, 404, 403 | admin/update-user | users | Updates a user by id |
 | Get | /users/\{id}/groups | - | - | [ApiGroup[]](#apigroup) | 200, 404, 403 | admin/get-user | groups | Gets the groups of a user by id |
-| Put | /users/\{id}/groups | [ApiSetGroupRequest[]](#apisetgrouprequest) | - | [ApiGroup[]](#apigroup) | 200, 404, 403 | admin/update-user | groups | Updates the groups of a user by id |
+| Put | /users/\{id}/groups | [ApiSetGroupRequest[]](#apisetgrouprequest) | - | [ApiUser](#apiuser) | 200, 404, 403 | admin/update-user | users | Updates the groups of a user by id |
+| Delete | /users/\{id}/groups | [ApiSetGroupRequest[]](#apisetgrouprequest) | - | [ApiUser](#apiuser) | 200, 404, 403 | admin/delete-user | users | Deletes the groups of a user by id |
+
 
 #### ApiGroup
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Slug | String | No | The slug of the group |
+| Name | String | No | The name of the group |
+| Description | String | Yes | The description of the group |
+| Permissions | String[] | Yes | The permissions of the group |
 
-#### ApiUpdateGroupRequest
+#### ApiUpdateGroup
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Slug | String | Yes | The slug of the group |
+| Name | String | Yes | The name of the group |
+| Description | String | Yes | The description of the group |
+| Permissions | String[] | Yes | The permissions of the group |
+
 
 #### ApiSetPermissionRequest
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Permissions | String[] | Yes | The permissions to set or remove |
 
 #### ApiUser
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Id | ObjectId | No | The id of the user |
+| Username | String | No | The username of the user |
+| Email | String | No | The email of the user |
+| FirstName | String | Yes | The first name of the user |
+| LastName | String | Yes | The last name of the user |
+| AvatarUrl | String | Yes | The avatar of the user |
+| IsLockoutEnabled | Boolean | No | If this user is locked out or not |
+| Permissions | String[] | Yes | The permissions of the user |
+| Groups | [ApiGroup[]](#apigroup) | Yes | The groups the user is in |
 
 #### ApiSetGroupRequest
+| Name | Type | Nullable | Description |
+| ---- | ---- | -------- | ----------- |
+| Groups | String[] | Yes | The slugs of the groups to set or remove |
