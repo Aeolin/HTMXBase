@@ -2,5 +2,5 @@
 
 ## Links
 
-- [Requirements Document](./docs/Requirements.pdf)
-- [Documentation](./docs/readme.md)
+- [Requirements Document](/.docs/Requirements.pdf)
+- [Documentation](/.docs/readme.md)
